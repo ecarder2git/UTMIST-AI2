@@ -60,7 +60,7 @@ class SubmittedAgent(Agent):
         action, _ = self.model.predict(obs)
 
         # convert to original action space
-        action = CustomActionWrapper.discrete_action_to_keys(action)
+        action = CustomActionWrapper.discrete_action_to_keys(action, obs)
 
         return action
 
@@ -79,7 +79,7 @@ class CustomDQN(DQN):
 class CustomActionWrapper(ActionWrapper):
 
     @staticmethod
-    def discrete_action_to_keys(action):
+    def discrete_action_to_keys(action, obs):
         '''Converts our discrete action space to the original multi-binary box action space.
         ORIGINAL ACTION SPACE (Box): w, a, s, d, space, h, l, j, k, g'''
 
@@ -122,4 +122,15 @@ class CustomActionWrapper(ActionWrapper):
         self.action_space = Discrete(42) # [0, 42]
 
     def action(self, action):
-        return self.discrete_action_to_keys(action)
+        return self.discrete_action_to_keys(action, self.observation)
+
+    # store most recent observation in self.observation
+    def reset(self, *args, **kwargs):
+        obs, info = super().reset(*args, **kwargs)
+        self.observation = obs
+        return obs, info
+
+    def step(self, *args, **kwargs):
+        obs, reward, terminated, truncated, info = super().step(*args, **kwargs)
+        self.observation = obs
+        return obs, reward, terminated, truncated, info
