@@ -18,8 +18,15 @@ import os
 import gdown
 from typing import Optional
 from environment.agent import Agent
-from stable_baselines3 import PPO, A2C # Sample RL Algo imports
-from sb3_contrib import RecurrentPPO # Importing an LSTM
+
+from stable_baselines3 import DQN
+#from sb3_contrib import RecurrentPPO # Importing an LSTM
+from stable_baselines3.common.monitor import Monitor
+
+from gymnasium.spaces import Discrete
+from gymnasium import ActionWrapper
+
+import numpy as np
 
 class SubmittedAgent(Agent):
     '''
@@ -31,30 +38,88 @@ class SubmittedAgent(Agent):
     ):
         super().__init__(file_path)
 
+
     def _initialize(self) -> None:
         if self.file_path is None:
-            self.model = PPO("MlpPolicy", self.env, verbose=0)
+            self.model = CustomDQN("MlpPolicy", CustomActionWrapper(self.env), verbose=0)
             del self.env
         else:
-            self.model = PPO.load(self.file_path)
+            self.model = CustomDQN.load(self.file_path)
 
     def _gdown(self) -> str:
-        data_path = "rl-model.zip"
-        if not os.path.isfile(data_path):
-            print(f"Downloading {data_path}...")
-            # Place a link to your PUBLIC model data here. This is where we will download it from on the tournament server.
-            url = "https://drive.google.com/file/d/1JIokiBOrOClh8piclbMlpEEs6mj3H1HJ/view?usp=sharing"
-            gdown.download(url, output=data_path, fuzzy=True)
-        return data_path
+        # data_path = "rl-model.zip"
+        # if not os.path.isfile(data_path):
+        #     print(f"Downloading {data_path}...")
+        #     # Place a link to your PUBLIC model data here. This is where we will download it from on the tournament server.
+        #     url = "https://drive.google.com/file/d/1JIokiBOrOClh8piclbMlpEEs6mj3H1HJ/view?usp=sharing"
+        #     gdown.download(url, output=data_path, fuzzy=True)
+        # return data_path
+        return
 
     def predict(self, obs):
         action, _ = self.model.predict(obs)
+
+        # convert to original action space
+        action = CustomActionWrapper.discrete_action_to_keys(action)
+
         return action
 
     def save(self, file_path: str) -> None:
-        self.model.save(file_path)
+        self.model.save(file_path, include=['num_timesteps'])
 
     # If modifying the number of models (or training in general), modify this
-    def learn(self, env, total_timesteps, log_interval: int = 4):
-        self.model.set_env(env)
+    def learn(self, env, total_timesteps, log_interval: int = 4, verbose=0):
+        self.model.set_env(CustomActionWrapper(env))
+        self.model.verbose = verbose
         self.model.learn(total_timesteps=total_timesteps, log_interval=log_interval)
+
+class CustomDQN(DQN):
+    pass
+
+class CustomActionWrapper(ActionWrapper):
+
+    @staticmethod
+    def discrete_action_to_keys(action):
+        '''Converts our discrete action space to the original multi-binary box action space.
+        ORIGINAL ACTION SPACE (Box): w, a, s, d, space, h, l, j, k, g'''
+
+        move_data = action % 6
+        att_jmp_dodge_data = action // 6
+
+        x_move = move_data % 3 # 0=left, 1=nothing, 2=right ('a' & 'd' keys)
+        down = move_data // 3 # 0=nothing, 1=pressed ('s' key)
+
+        dodge = 0
+        if att_jmp_dodge_data == 6: # dodge
+            dodge = 1
+            att_jmp_dodge_data = 0
+
+        attack = att_jmp_dodge_data % 3 # 0=nothing, 1=light, 2=heavy ('j' & 'k' keys)
+        jump = att_jmp_dodge_data // 3 # 0=nothing, 1=jump ('space' key)
+
+        # TODO: implement pickup based on env state
+        pickup = 0
+
+        return np.array((
+            0, # w (aim up)
+            x_move == 0, # a (move left)
+            down, # s (move down)
+            x_move == 2, # d (move right)
+            jump, # space (jump)
+            pickup, # h (pickup)
+            dodge, # l (dodge)
+            attack == 1, # j (light attack)
+            attack == 2, # k (heavy attack)
+            0, # g (taunt)
+        ))
+
+    def __init__(self, env):
+        super().__init__(env)
+
+        # movement: {left, nothing, right}×{down, nothing} = 3 * 2 = 6 combinations
+        # attack/jump/dodge: ({light, heavy, nothing}×{jump, nothing}) ∪ {dodge} = 3*2 + 1 = 7 combinations
+        # 6 * 7 = 42 total action combinations
+        self.action_space = Discrete(42) # [0, 42]
+
+    def action(self, action):
+        return self.discrete_action_to_keys(action)

@@ -27,6 +27,8 @@ from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 from environment.agent import *
 from typing import Optional, Type, List, Tuple
 
+from user.my_agent import SubmittedAgent
+
 # -------------------------------------------------------------------------
 # ----------------------------- AGENT CLASSES -----------------------------
 # -------------------------------------------------------------------------
@@ -569,7 +571,7 @@ The main function runs training. You can change configurations such as the Agent
 '''
 if __name__ == '__main__':
     # Create agent
-    my_agent = CustomAgent(sb3_class=PPO, extractor=MLPExtractor)
+    my_agent = SubmittedAgent(file_path=None)
 
     # Start here if you want to train from scratch. e.g:
     #my_agent = RecurrentPPOAgent()
@@ -588,10 +590,10 @@ if __name__ == '__main__':
     # Set save settings here:
     save_handler = SaveHandler(
         agent=my_agent, # Agent to save
-        save_freq=100_000, # Save frequency
+        save_freq=20_000, # Save frequency
         max_saved=40, # Maximum number of saved models
         save_path='checkpoints', # Save path
-        run_name='experiment_9',
+        run_name='experiment_1',
         mode=SaveHandlerMode.FORCE # Save mode, FORCE or RESUME
     )
 
