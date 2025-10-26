@@ -975,8 +975,8 @@ class WarehouseBrawl(MalachiteEnv[np.ndarray, np.ndarray, int]):
         act_helper.add_key("k") # K (Heavy Attack)
         act_helper.add_key("g") # G (Taunt)
 
-        #act_helper.add_key("q") #equip weapon
-        #act_helper.add_key("v") #drop weapon
+        # act_helper.add_key("q") # equip weapon
+        # act_helper.add_key("v") # drop weapon
 
         print('Action space', act_helper.low, act_helper.high)
 
