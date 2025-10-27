@@ -19,8 +19,8 @@ import gdown
 from typing import Optional
 from environment.agent import Agent
 
-from stable_baselines3 import DQN
-#from sb3_contrib import RecurrentPPO # Importing an LSTM
+#from stable_baselines3 import DQN
+from sb3_contrib import QRDQN
 from stable_baselines3.common.monitor import Monitor
 
 from gymnasium.spaces import Discrete, Box
@@ -47,7 +47,9 @@ class SubmittedAgent(Agent):
             self.model = CustomDQN(
                 "MlpPolicy", 
                 CustomActionWrapper(TransformObservation(self.env, transform_obs, self.new_observation_space)), 
-                verbose=0
+                verbose=0,
+
+                n_steps=3 # multi-step return
             )
             del self.env
         else:
@@ -84,7 +86,7 @@ class SubmittedAgent(Agent):
         self.model.verbose = verbose
         self.model.learn(total_timesteps=total_timesteps, log_interval=log_interval)
 
-class CustomDQN(DQN):
+class CustomDQN(QRDQN):
     pass
 
 class CustomActionWrapper(ActionWrapper):
