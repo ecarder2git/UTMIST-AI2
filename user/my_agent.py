@@ -86,9 +86,11 @@ class CustomActionWrapper(ActionWrapper):
         move_data = action % 6
         att_jmp_dodge_data = action // 6
 
+        # process move_data
         x_move = move_data % 3 # 0=left, 1=nothing, 2=right ('a' & 'd' keys)
         down = move_data // 3 # 0=nothing, 1=pressed ('s' key)
 
+        # process att_jmp_dodge_data
         dodge = 0
         if att_jmp_dodge_data == 6: # dodge
             dodge = 1
@@ -97,8 +99,8 @@ class CustomActionWrapper(ActionWrapper):
         attack = att_jmp_dodge_data % 3 # 0=nothing, 1=light, 2=heavy ('j' & 'k' keys)
         jump = att_jmp_dodge_data // 3 # 0=nothing, 1=jump ('space' key)
 
-        # TODO: implement pickup based on env state
-        pickup = 0
+        # spam pickup if no weapon; if weapon, don't press to avoid dropping weapon
+        pickup = obs[15] == 0
 
         return np.array((
             0, # w (aim up)
