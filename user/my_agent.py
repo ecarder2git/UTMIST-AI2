@@ -25,6 +25,7 @@ from stable_baselines3.common.monitor import Monitor
 
 from gymnasium.spaces import Discrete
 from gymnasium import ActionWrapper
+from gymnasium.wrappers import TransformObservation
 
 import numpy as np
 
@@ -41,7 +42,7 @@ class SubmittedAgent(Agent):
 
     def _initialize(self) -> None:
         if self.file_path is None:
-            self.model = CustomDQN("MlpPolicy", CustomActionWrapper(self.env), verbose=0)
+            self.model = CustomDQN("MlpPolicy", CustomActionWrapper(TransformObservation(self.env,obsTransform,None)), verbose=0)
             del self.env
         else:
             self.model = CustomDQN.load(self.file_path)
@@ -69,7 +70,7 @@ class SubmittedAgent(Agent):
 
     # If modifying the number of models (or training in general), modify this
     def learn(self, env, total_timesteps, log_interval: int = 4, verbose=0):
-        self.model.set_env(CustomActionWrapper(env))
+        self.model.set_env(CustomActionWrapper(TransformObservation(env,obsTransform,None)))
         self.model.verbose = verbose
         self.model.learn(total_timesteps=total_timesteps, log_interval=log_interval)
 
@@ -134,3 +135,8 @@ class CustomActionWrapper(ActionWrapper):
         obs, reward, terminated, truncated, info = super().step(*args, **kwargs)
         self.observation = obs
         return obs, reward, terminated, truncated, info
+    
+def obsTransform(x):
+    y = x.copy() # Ensures nothing else that uses the underlying observation is disturbed
+    y[48:] = 0.0
+    return y
