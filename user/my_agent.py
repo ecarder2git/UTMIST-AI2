@@ -23,7 +23,7 @@ from stable_baselines3 import DQN
 #from sb3_contrib import RecurrentPPO # Importing an LSTM
 from stable_baselines3.common.monitor import Monitor
 
-from gymnasium.spaces import Discrete
+from gymnasium.spaces import Discrete, Box
 from gymnasium import ActionWrapper
 from gymnasium.wrappers import TransformObservation
 
@@ -39,10 +39,16 @@ class SubmittedAgent(Agent):
     ):
         super().__init__(file_path)
 
-
     def _initialize(self) -> None:
+        self.new_observation_space = Box(self.observation_space.low[:48], self.observation_space.high[:48])
+
         if self.file_path is None:
-            self.model = CustomDQN("MlpPolicy", CustomActionWrapper(TransformObservation(self.env,obsTransform,None)), verbose=0)
+
+            self.model = CustomDQN(
+                "MlpPolicy", 
+                CustomActionWrapper(TransformObservation(self.env, transform_obs, self.new_observation_space)), 
+                verbose=0
+            )
             del self.env
         else:
             self.model = CustomDQN.load(self.file_path)
@@ -58,6 +64,9 @@ class SubmittedAgent(Agent):
         return
 
     def predict(self, obs):
+        # convert to new observation space
+        obs = transform_obs(obs)
+
         action, _ = self.model.predict(obs)
 
         # convert to original action space
@@ -70,7 +79,8 @@ class SubmittedAgent(Agent):
 
     # If modifying the number of models (or training in general), modify this
     def learn(self, env, total_timesteps, log_interval: int = 4, verbose=0):
-        self.model.set_env(CustomActionWrapper(TransformObservation(env,obsTransform,None)))
+        self.model.set_env(
+            CustomActionWrapper(TransformObservation(env, transform_obs, self.new_observation_space)))
         self.model.verbose = verbose
         self.model.learn(total_timesteps=total_timesteps, log_interval=log_interval)
 
@@ -137,8 +147,6 @@ class CustomActionWrapper(ActionWrapper):
         obs, reward, terminated, truncated, info = super().step(*args, **kwargs)
         self.observation = obs
         return obs, reward, terminated, truncated, info
-    
-def obsTransform(x):
-    y = x.copy() # Ensures nothing else that uses the underlying observation is disturbed
-    y[48:] = 0.0
-    return y
+
+def transform_obs(x):
+    return x[:48]
