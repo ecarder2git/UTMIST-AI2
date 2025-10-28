@@ -21,7 +21,7 @@ from environment.agent import Agent
 
 #from stable_baselines3 import DQN
 from sb3_contrib import QRDQN
-from stable_baselines3.common.monitor import Monitor
+from stable_baselines3.common.vec_env import SubprocVecEnv
 
 from gymnasium.spaces import Discrete, Box
 from gymnasium import ActionWrapper
@@ -30,6 +30,8 @@ from gymnasium.wrappers import TransformObservation
 import numpy as np
 
 class SubmittedAgent(Agent):
+    N_ENVS = 4
+
     '''
     Input the **file_path** to your agent here for submission!
     '''
@@ -39,6 +41,13 @@ class SubmittedAgent(Agent):
     ):
         super().__init__(file_path)
 
+    def wrap_env(self, env):
+        return CustomActionWrapper(
+                TransformObservation(env, transform_obs, self.new_observation_space))
+        # return SubprocVecEnv([ lambda: CustomActionWrapper(
+        #         TransformObservation(env, transform_obs, self.new_observation_space))
+        #     for i in range(self.N_ENVS)])
+
     def _initialize(self) -> None:
         self.new_observation_space = Box(self.observation_space.low[:48], self.observation_space.high[:48])
 
@@ -46,7 +55,7 @@ class SubmittedAgent(Agent):
 
             self.model = CustomDQN(
                 "MlpPolicy", 
-                CustomActionWrapper(TransformObservation(self.env, transform_obs, self.new_observation_space)), 
+                self.wrap_env(self.env), 
                 verbose=0,
             )
             del self.env
@@ -79,8 +88,7 @@ class SubmittedAgent(Agent):
 
     # If modifying the number of models (or training in general), modify this
     def learn(self, env, total_timesteps, log_interval: int = 4, verbose=0):
-        self.model.set_env(
-            CustomActionWrapper(TransformObservation(env, transform_obs, self.new_observation_space)))
+        self.model.set_env(self.wrap_env(env))
         self.model.verbose = verbose
         self.model.learn(total_timesteps=total_timesteps, log_interval=log_interval)
 
