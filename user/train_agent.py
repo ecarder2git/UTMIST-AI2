@@ -459,7 +459,7 @@ def in_state_reward(
     return reward * env.dt
 
 def head_to_middle_reward(
-    env: WarehouseBrawl,
+    env: WarehouseBrawl,    
 ) -> float:
     """
     Applies a penalty for every time frame player surpases a certain height threshold in the environment.
@@ -467,11 +467,15 @@ def head_to_middle_reward(
     Args:
         env (WarehouseBrawl): The game environment.
         zone_penalty (int): The penalty applied when the player is in the danger zone.
-        zone_height (float): The height threshold defining the danger zone.
+        zone_width (float): The width threshold defining the danger zone.
 
     Returns:
         float: The computed penalty as a tensor.
     """
+
+    # multiple = 1 if self.body.position.x < 0 else -1
+        # self.env.add_reward(self.agent_id, multiple * (self.body.position.x - self.prev_x))
+        
     # Get player object from the environment
     player: Player = env.objects["player"]
 
