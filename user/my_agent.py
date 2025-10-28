@@ -48,8 +48,6 @@ class SubmittedAgent(Agent):
                 "MlpPolicy", 
                 CustomActionWrapper(TransformObservation(self.env, transform_obs, self.new_observation_space)), 
                 verbose=0,
-
-                n_steps=3 # multi-step return
             )
             del self.env
         else:
