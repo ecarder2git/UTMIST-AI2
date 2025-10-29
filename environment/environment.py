@@ -890,6 +890,11 @@ class WarehouseBrawl(MalachiteEnv[np.ndarray, np.ndarray, int]):
         
         self.load_attacks()
 
+        WeaponSpawner.vfxs = []
+        WeaponSpawner.vfxs.append(SpawnerVFX(camera=self.camera, world_pos=[0,0], animation_folder="environment/spawnervfx", scale=1.25))  # spawn.gif, idle.gif, despawn.gif, pickup.gif
+        WeaponSpawner.vfxs.append(SpawnerVFX(camera=self.camera, world_pos=[0,0], animation_folder="environment/spawnervfx", scale=1.25))  # spawn.gif, idle.gif, despawn.gif, pickup.gif
+
+
         self.reset()
 
     def get_observation_space(self):
@@ -3901,8 +3906,8 @@ class Player(GameObject):
         #self.direction = [action[0] - action[1], action[2] - action[3]]
 
         # Reward: TO DELETE
-        # multiple = 1 if self.body.position.x < 0 else -1
-        # self.env.add_reward(self.agent_id, multiple * (self.body.position.x - self.prev_x))
+        multiple = 1 if self.body.position.x < 0 else -1
+        self.env.add_reward(self.agent_id, multiple * (self.body.position.x - self.prev_x))
 
     def physics_process(self, delta: float) -> None:
         new_state: PlayerObjectState = self.state.physics_process(delta)
@@ -4182,6 +4187,8 @@ class WeaponPool:
         self.pool.append(weapon)
 
 class WeaponSpawner:
+    vfxs = []
+
     def __init__(self, camera, id, env, pool, pos, cooldown_frames, despawn_frames):
        
         self.id = id
@@ -4198,7 +4205,12 @@ class WeaponSpawner:
         self.initialize_vfx()
     def initialize_vfx(self):
            #VFX 
-        self.vfx = SpawnerVFX(camera=self.camera, world_pos=self.world_pos, animation_folder="environment/spawnervfx", scale=1.25) # spawn.gif, idle.gif, despawn.gif, pickup.gif
+        #self.vfx = SpawnerVFX(camera=self.camera, world_pos=self.world_pos, animation_folder="environment/spawnervfx", scale=1.25) # spawn.gif, idle.gif, despawn.gif, pickup.gif
+        #self.env.objects[f"SpawnerVFX{self.id}"] = self.vfx
+        #self.flag = False
+
+        self.vfx = WeaponSpawner.vfxs[self.id]
+        self.vfx.world_pos = self.world_pos
         self.env.objects[f"SpawnerVFX{self.id}"] = self.vfx
         self.flag = False
  
