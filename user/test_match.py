@@ -44,7 +44,7 @@ class TestingConstantAgent(ConstantAgent):
 
     max_fall_speed = 12
 
-    skip_steps = 5
+    skip_steps = 10
 
     def __init__(self, *args, **kwargs): 
         super().__init__(*args, **kwargs)
@@ -73,16 +73,18 @@ class TestingConstantAgent(ConstantAgent):
 
         if self.env.steps % self.skip_steps == 0:
 
-            #super_action[4] = np.random.random() * 0.55
+            super_action[4] = np.random.random() * 0.55
             jump = super_action[4] >= 0.5
-            #if jump: print("JUMP")
+            if jump: print("JUMP")
 
             # pos
             player_pos = obs[0:2].copy()
             player_vel = obs[2:4].copy()
 
+            if jump: player_vel[1] = self.jump_vel
+
             if not self.pred_pos is None:
-                #print("pred pos error", player_pos[0] - self.pred_pos[0])
+                #print("pred pos error", player_pos[1] - self.pred_pos[1])
                 #print("vel change", (player_vel - self.prev_vel) / self.skip_steps)
 
                 #pred_vel_error = player_vel[1] - self.pred_vel[1] 
@@ -95,14 +97,14 @@ class TestingConstantAgent(ConstantAgent):
             pred_vel = player_vel.copy()
             
             for i in range(self.skip_steps):
-                pred_pos, pred_vel = self.player_physics_update(pred_pos, pred_vel, jump=jump and i==0)
+                pred_pos, pred_vel = self.player_physics_update(pred_pos, pred_vel)
 
             self.pred_pos = pred_pos
             self.pred_vel = pred_vel
 
         return super_action
 
-    def player_physics_update(self, pos, vel, jump=False):
+    def player_physics_update(self, pos, vel):
         n_vel = vel.copy()
 
         n_vel[0] -= min(abs(n_vel[0]), self.x_friction) * np.sign(n_vel[0])
@@ -135,8 +137,6 @@ class TestingConstantAgent(ConstantAgent):
                 n_vel[0] = 0
 
         #if not on_ground: print(self.env.steps)
-
-        if jump: n_vel[1] = self.jump_vel
 
         if not on_ground: # game doesn't update y_vel if on ground
             n_vel[1] += self.y_friction
