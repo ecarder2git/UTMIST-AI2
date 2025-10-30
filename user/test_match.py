@@ -1,7 +1,7 @@
-from environment.environment import RenderMode, CameraResolution
+from environment.environment import RenderMode, CameraResolution, WarehouseBrawl
 from environment.agent import run_real_time_match
 from user.train_agent import UserInputAgent, BasedAgent, ConstantAgent, ClockworkAgent, SB3Agent, RecurrentPPOAgent #add anymore custom Agents (from train_agent.py) here as needed
-from user.my_agent import SubmittedAgent
+from user.my_agent import SubmittedAgent, CustomObservationWrapper
 import pygame
 pygame.init()
 
@@ -56,8 +56,24 @@ class TestingConstantAgent(ConstantAgent):
 
         self.prev_vel = None
 
+        self.prev_move_types = [0,0]
+        self.move_frames = [0,0]
+
+        # attack data; loaded in self._initialize()
+        self.keys = None
+        self.attacks = None
+        self.spear_attacks = None
+        self.hammer_attacks = None
+
+    def _initialize(self) -> None:
+        WarehouseBrawl.load_attacks(self)
+        print(self.attacks)
+
     def predict(self, obs):
         super_action = super().predict(obs)
+
+        CustomObservationWrapper._step(self, obs)
+        obs = CustomObservationWrapper.observation(self, obs)
 
         # stun & dodge window
         stun_frames = obs[11]

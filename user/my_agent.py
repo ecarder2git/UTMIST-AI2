@@ -24,8 +24,7 @@ from sb3_contrib import QRDQN
 from stable_baselines3.common.vec_env import SubprocVecEnv
 
 from gymnasium.spaces import Discrete, Box
-from gymnasium import ActionWrapper
-from gymnasium.wrappers import TransformObservation
+from gymnasium import ActionWrapper, ObservationWrapper
 
 import numpy as np
 
@@ -41,15 +40,21 @@ class SubmittedAgent(Agent):
     ):
         super().__init__(file_path)
 
+        self.prev_move_types = [0,0]
+        self.move_frames = [0,0]
+
     def wrap_env(self, env):
         return CustomActionWrapper(
-                TransformObservation(env, transform_obs, self.new_observation_space))
+                CustomObservationWrapper(env, self.new_observation_space))
         # return SubprocVecEnv([ lambda: CustomActionWrapper(
         #         TransformObservation(env, transform_obs, self.new_observation_space))
         #     for i in range(self.N_ENVS)])
 
     def _initialize(self) -> None:
-        self.new_observation_space = Box(self.observation_space.low[:48], self.observation_space.high[:48])
+        self.new_observation_space = CustomObservationWrapper.generate_observation_space(
+            self.observation_space.low, 
+            self.observation_space.high
+        )
 
         if self.file_path is None:
 
@@ -74,7 +79,10 @@ class SubmittedAgent(Agent):
 
     def predict(self, obs):
         # convert to new observation space
-        obs = transform_obs(obs)
+        CustomObservationWrapper._step(self, obs)
+        obs = CustomObservationWrapper.observation(self, obs)
+
+        #print(obs[48:])
 
         action, _ = self.model.predict(obs)
 
@@ -181,5 +189,51 @@ class CustomActionWrapper(ActionWrapper):
         self.observation = obs
         return obs, reward, terminated, truncated, info
 
-def transform_obs(x):
-    return x[:48]
+class CustomObservationWrapper(ObservationWrapper):
+    CROP_INDEX = 48
+
+    MAX_MOVE_FRAMES = 3 * 30
+    obs_additional_low = np.array([0,0], dtype=np.float32)
+    obs_additional_high = np.array([MAX_MOVE_FRAMES, MAX_MOVE_FRAMES], dtype=np.float32)
+
+    @staticmethod 
+    def generate_observation_space(low, high):
+        return Box(
+            np.concatenate((low[:CustomObservationWrapper.CROP_INDEX], CustomObservationWrapper.obs_additional_low)), 
+            np.concatenate((high[:CustomObservationWrapper.CROP_INDEX], CustomObservationWrapper.obs_additional_high))
+        )
+
+    def __init__(self, env, observation_space):
+        super().__init__(env)
+        self.observation_space = observation_space 
+
+        self.prev_move_types = [0,0]
+        self.move_frames = [0,0]
+
+    def observation(self, obs):
+        return np.concatenate((obs[:CustomObservationWrapper.CROP_INDEX], np.array(self.move_frames)))
+
+    # store most recent observation in self.observation
+    def reset(self, *args, **kwargs):
+        obs, info = super().reset(*args, **kwargs)
+
+        self.prev_move_types = [0,0]
+        self.move_frames = [0,0]
+
+        return obs, info
+
+    def step(self, *args, **kwargs):
+        obs, reward, terminated, truncated, info = super().step(*args, **kwargs)
+        self._step(obs)
+        return obs, reward, terminated, truncated, info
+    
+    def _step(self, obs):
+        for i, obs_i in enumerate((14, 46)):
+            move_type = obs[obs_i]
+
+            if move_type != 0 and move_type == self.prev_move_types[i]:
+                self.move_frames[i] += 1
+                self.move_frames[i] = min(self.move_frames[i], CustomObservationWrapper.MAX_MOVE_FRAMES)
+            else: 
+                self.move_frames[i] = 0
+                self.prev_move_types[i] = move_type
