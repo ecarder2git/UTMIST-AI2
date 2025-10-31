@@ -187,11 +187,11 @@ class CustomDQN(QRDQN):
                 n_batch = observation.shape[0]
 
             override_actions = [self._gen_override_action(observation[i]) for i in range(n_batch)]
-            action = np.array([ model_action[i] if action == None else action 
+            action = np.array([ model_action[i] if action is None else action 
                 for i, action in enumerate(override_actions)  ])
         else:
             override_action = self._gen_override_action(observation)
-            action = model_action if override_action == None else np.array(override_action) 
+            action = model_action if override_action is None else np.array(override_action) 
 
         return action, state
 
