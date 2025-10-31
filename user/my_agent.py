@@ -47,7 +47,7 @@ class SubmittedAgent(Agent):
         return CustomActionWrapper(
                 CustomObservationWrapper(env, self.new_observation_space))
         # return SubprocVecEnv([ lambda: CustomActionWrapper(
-        #         TransformObservation(env, transform_obs, self.new_observation_space))
+        #         CustomObservationWrapper(env, self.new_observation_space))
         #     for i in range(self.N_ENVS)])
 
     def _initialize(self) -> None:

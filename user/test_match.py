@@ -1,4 +1,5 @@
-from environment.environment import RenderMode, CameraResolution, WarehouseBrawl
+from environment.environment import RenderMode, CameraResolution
+from environment.environment import WarehouseBrawl, Power, Cast, Capsule, CapsuleCollider, MoveType
 from environment.agent import run_real_time_match
 from user.train_agent import UserInputAgent, BasedAgent, ConstantAgent, ClockworkAgent, SB3Agent, RecurrentPPOAgent #add anymore custom Agents (from train_agent.py) here as needed
 from user.my_agent import SubmittedAgent, CustomObservationWrapper
@@ -6,9 +7,9 @@ import pygame
 pygame.init()
 
 import numpy as np
+import math
 
-
-class TestingUserAgent(UserInputAgent):
+class TestingUserAgent(ConstantAgent):
 
     def predict(self, obs):
         user_action = super().predict(obs)
@@ -25,7 +26,7 @@ class TestingUserAgent(UserInputAgent):
         if move_type != 0: return # in a move still; can't do anything
 
 
-class TestingConstantAgent(ConstantAgent):
+class TestingConstantAgent(UserInputAgent):
     dt = 1 / 30.0
 
     # BRAWL_TO_UNITS = 1.024 / 320
@@ -43,8 +44,12 @@ class TestingConstantAgent(ConstantAgent):
     jump_vel = -8.9 # velocity is set to this on jump frame; friction is still applied afterwards
 
     max_fall_speed = 12
+    move_speed = 6.75
+
+    player_bounce_coef = 0.7
 
     skip_steps = 10
+    pred_steps = 10
 
     def __init__(self, *args, **kwargs): 
         super().__init__(*args, **kwargs)
@@ -67,7 +72,7 @@ class TestingConstantAgent(ConstantAgent):
 
     def _initialize(self) -> None:
         WarehouseBrawl.load_attacks(self)
-        print(self.attacks)
+        self.weapon_attacks_mapping = self.attacks, self.spear_attacks, self.hammer_attacks
 
     def predict(self, obs):
         super_action = super().predict(obs)
@@ -87,43 +92,205 @@ class TestingConstantAgent(ConstantAgent):
 
             print("Stun:", stun_frames)
 
-        if self.env.steps % self.skip_steps == 0:
+        # test position prediction
+        # if self.env.steps % self.skip_steps == 0:
 
-            super_action[4] = np.random.random() * 0.55
-            jump = super_action[4] >= 0.5
-            if jump: print("JUMP")
+        #     #super_action[4] = np.random.random() * 0.55
+        #     jump = super_action[4] >= 0.5
+        #     #if jump: print("JUMP")
 
-            # pos
-            player_pos = obs[0:2].copy()
-            player_vel = obs[2:4].copy()
+        #     # pos
+        #     player_pos = obs[0:2].copy()
+        #     player_vel = obs[2:4].copy()
 
-            if jump: player_vel[1] = self.jump_vel
+        #     if jump: player_vel[1] = self.jump_vel
 
-            if not self.pred_pos is None:
-                #print("pred pos error", player_pos[1] - self.pred_pos[1])
-                #print("vel change", (player_vel - self.prev_vel) / self.skip_steps)
+        #     if not self.pred_pos is None:
+        #         #print("pred pos error", player_pos[1] - self.pred_pos[1])
+        #         #print("vel change", (player_vel - self.prev_vel) / self.skip_steps)
 
-                #pred_vel_error = player_vel[1] - self.pred_vel[1] 
-                #print(pred_vel_error)
-                pass
+        #         #pred_vel_error = player_vel[1] - self.pred_vel[1] 
+        #         #print(pred_vel_error)
+        #         pass
 
-            self.prev_vel = player_vel
+        #     self.prev_vel = player_vel
 
-            pred_pos = player_pos.copy()
-            pred_vel = player_vel.copy()
+        #     pred_pos = player_pos.copy()
+        #     pred_vel = player_vel.copy()
             
-            for i in range(self.skip_steps):
-                pred_pos, pred_vel = self.player_physics_update(pred_pos, pred_vel)
+        #     for i in range(self.skip_steps):
+        #         pred_pos, pred_vel = self.player_physics_update(pred_pos, pred_vel)
 
-            self.pred_pos = pred_pos
-            self.pred_vel = pred_vel
+        #     self.pred_pos = pred_pos
+        #     self.pred_vel = pred_vel
+
+        facing_dir = obs[4]
+        if facing_dir == 0: facing_dir = -1
+            # -1 = left; 1 = right
+        
+        weapon_type = int(obs[15])
+
+        move_type = int(obs[14])
+        move_frame = obs[48]
+
+        if move_type != 0 and move_frame == 0:
+            print("Started Move", move_type)
+
+            move_data = self.weapon_attacks_mapping[weapon_type][MoveType(move_type)]
+
+            power = Power.get_power(move_data['powers'][move_data['move']['initialPowerIndex']])
+
+            pred_pos = obs[0:2].copy()
+            pred_vel = obs[2:4].copy()
+
+            for i in range(self.pred_steps):
+                # charges; assume charging for min amount
+                if power.is_charge and power.total_frame_count > power.min_charge:
+                    power = Power.get_power(move_data['powers'][power.on_miss_next_power_index])
+                    
+                else:
+                    pred_vel = self.update_player_velocity_with_power(power, pred_vel, facing_dir)
+
+                    power = self.update_power(power, move_data, facing_dir, pred_pos, obs[32:34])
+                    if power is None: break
+
+                pred_pos, pred_vel = self.player_physics_update(pred_pos, pred_vel, 
+                    True, power.enable_floor_drag, True) #not power.disable_caster_gravity)
+                        # THEY DIDN'T IMPLEMENT disable_caster_gravity CORRECTLY! doesn't actually do anything
+
+            print("Pred", pred_pos, pred_vel)
+
+        elif move_type != 0 and move_frame == self.pred_steps:
+            print("Actual", obs[0:2], obs[2:4])
+
+        # player_physics_update(power.enable_floor_drag, power.disable_caster_gravity)
 
         return super_action
 
-    def player_physics_update(self, pos, vel):
+    # NOTE: not perfect when attack hits the gounrd; 
+    #   prediction assumes player will slide along gorund
+    #   player actually rams into ground and does not slide
+    # unarmed:
+    # spear: ssig slight? x, y; dsig slight x, slight more y
+    # hammer: dsig???
+
+    def update_power(self, power: Power, move, player_facing, player_pos, opponent_pos):
+        '''Returns next power, or None if entire attack is done
+        Assumes no input from either player (eg. no dodging, no movement)
+        Stops upon hit; does not calculate further'''
+
+        power.total_frame_count += 1
+
+        current_cast: Cast = power.casts[power.cast_idx]
+
+        in_startup = current_cast.frame_idx < current_cast.startup_frames
+        in_attack = not in_startup and current_cast.frame_idx < (current_cast.startup_frames + current_cast.attack_frames)
+
+        if in_attack: # check collisions
+            self.handle_power_hitboxes(power, current_cast, player_facing, player_pos, opponent_pos)
+
+        current_cast.frame_idx += 1
+
+        power.in_recovery = not in_attack and not in_startup
+        if not power.in_recovery: return power
+
+
+        ### in recovery ###
+
+        if power.cast_idx < len(power.casts) - 1: # not last cast; go to next cast
+            power.cast_idx += 1
+            return power
+
+        # else: handle last cast
+
+        if power.frames_into_recovery < power.recovery_frames: # not done recovering yet; yield until done
+            power.frames_into_recovery += 1 
+            return power
+
+        # else: done recovering
+
+        if power.last_power: # attack done; end attack
+            return None
+
+        # else: still more powers in attack; go to the next power
+
+        # we don't care about further calculations if hit; code would've returned before reachinh here
+        # if power.hit_anyone and power.on_hit_next_power_index != -1: # go to on_hit_next_power
+        #     return Power.get_power(move['powers'][power.on_hit_next_power_index])
+
+        if power.on_miss_next_power_index != -1: # go to on_miss_next_power
+            return Power.get_power(move['powers'][power.on_miss_next_power_index])
+
+        return power # stay on the same power
+
+    def update_player_velocity_with_power(self, power: Power, vel, facing_dir):
+        # if power.allow_left_right_mobility:
+        #     # assume always holding sideways move key
+        #     vel[0] += min(self.x_friction, self.move_speed) * facing_dir 
+
+        current_cast = power.casts[power.cast_idx]
+        changes = current_cast.get_frame_data(current_cast.frame_idx)
+
+        if changes is None:
+            return vel
+
         n_vel = vel.copy()
 
-        n_vel[0] -= min(abs(n_vel[0]), self.x_friction) * np.sign(n_vel[0])
+        cvs = changes.caster_velocity_set
+        #print(f"{self.agent_id} {cvs} ding!")
+        if cvs is not None and cvs.active:
+            angle_rad = math.radians(cvs.directionDeg)
+            n_vel = np.array((math.cos(angle_rad), -math.sin(angle_rad)))  * cvs.magnitude
+            n_vel[0] *= int(facing_dir)
+        
+        # Process caster velocity damp XY.
+        cvdxy = changes.caster_velocity_damp_xy
+        if cvdxy is not None:
+            if getattr(cvdxy, 'activeX', False): n_vel[0] *= cvdxy.dampX
+            if getattr(cvdxy, 'activeY', False): n_vel[1] *= cvdxy.dampY
+
+        # Process caster velocity set XY.
+        cvsxy = changes.caster_velocity_set_xy
+        if cvsxy is not None:
+            if getattr(cvsxy, 'activeX', False): n_vel[0] = cvsxy.magnitudeX * int(facing_dir)
+            if getattr(cvsxy, 'activeY', False): n_vel[1] = cvsxy.magnitudeY
+        
+        # Process caster velocity add XY.
+        cvaxy = changes.caster_velocity_add_xy
+        if cvaxy is not None:
+            if getattr(cvaxy, 'activeX', False): n_vel[0] += cvaxy.magnitudeX * int(facing_dir)
+            if getattr(cvaxy, 'activeY', False): n_vel[1] += cvaxy.magnitudeY
+
+        return n_vel
+
+    def handle_power_hitboxes(self, power, current_cast, facing_dir, player_pos, opponent_pos):
+        pass
+        # for hitbox in current_cast.hitboxes:
+        #     hitbox_offset = Capsule.get_hitbox_offset(hitbox['xOffset'], hitbox['yOffset'])
+        #     hitbox_offset = (hitbox_offset[0] * facing_dir, hitbox_offset[1]) # adjust for facing direction
+
+        #     hitbox_pos = (player_pos[0] + hitbox_offset[0], player_pos[1] + hitbox_offset[1])
+        #     hitbox_size = Capsule.get_hitbox_size(hitbox['width'], hitbox['height'])
+        #     hitbox_collider = CapsuleCollider(center=hitbox_pos, width=hitbox_size[0], height=hitbox_size[1])
+
+        #     hurtbox_collider = CapsuleCollider(center=opponent_pos, 
+        #         width=self.player_hurtbox_size[0], height=self.player_hurtbox_size[1])
+
+        #     intersects = hurtbox_collider.intersects(hitbox_collider)
+           
+        #     if intersects:
+        #         pass
+        #         # hit!
+
+    
+        # if power.cast_idx == len(power.casts) - 1 and power.last_power:
+        #     power.frames_into_recovery += 1
+
+    def player_physics_update(self, pos, vel, attacking=False, apply_x_friction=True, apply_y_friction=True):
+        n_vel = vel.copy()
+
+        if apply_x_friction:
+            n_vel[0] -= min(abs(n_vel[0]), self.x_friction) * np.sign(n_vel[0])
 
         n_pos = pos + n_vel*self.dt
 
@@ -144,8 +311,9 @@ class TestingConstantAgent(ConstantAgent):
             
             # collision; find direction to resolve collision with least movement
             if clip_bot < clip_left and clip_bot < clip_right: # move up to resolve
-                n_pos[1] -= max(0, clip_bot)
-                n_vel[1] = 0
+                # n_pos[1] -= max(0, clip_bot)
+                # n_vel[1] = 0
+                if n_vel[1] > 0: n_vel[1] = -n_vel[1] * self.player_bounce_coef
                 on_ground = True
             else: # move horizontally to resolve
                 if clip_left < clip_right: n_pos[0] += clip_left
@@ -154,10 +322,11 @@ class TestingConstantAgent(ConstantAgent):
 
         #if not on_ground: print(self.env.steps)
 
-        if not on_ground: # game doesn't update y_vel if on ground
+        if (not on_ground) and apply_y_friction: # game doesn't update y_vel if on ground
             n_vel[1] += self.y_friction
 
-        n_vel[1] = min(self.max_fall_speed, n_vel[1]) # game caps fall speed
+        if not attacking: # their code caps fall speed in most states, but does not cap in attack state
+            n_vel[1] = min(self.max_fall_speed, n_vel[1]) # game caps fall speed
 
         return n_pos, n_vel
         
