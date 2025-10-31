@@ -17,7 +17,7 @@
 import os
 import gdown
 from typing import Optional
-from environment.agent import Agent, CustomActionWrapper, transform_obs
+from environment.agent import Agent, CustomActionWrapper, CustomObservationWrapper
 
 #from stable_baselines3 import DQN
 from sb3_contrib import QRDQN
@@ -47,7 +47,7 @@ class SubmittedAgent(Agent):
     #    #     for i in range(self.N_ENVS)])
 
     def _initialize(self) -> None:
-        #self.new_observation_space = CustomObservationWrapper.generate_observation_space(      # VECREMOVAL
+        #self.new_observation_space = CustomObservationWrapper.generate_observation_space( # Vec: This is done in train_agent
         #    self.observation_space.low, 
         #    self.observation_space.high
         #)
@@ -79,9 +79,9 @@ class SubmittedAgent(Agent):
 
     def predict(self, obs, getRaw=False):
         # convert to new observation space
-        #CustomObservationWrapper._step(self, obs)                  # VECREMOVAL
-        #obs = CustomObservationWrapper.observation(self, obs)
-        obs = transform_obs(obs)
+        CustomObservationWrapper._step(self, obs)                  # vec: this is fine
+        obs = CustomObservationWrapper.observation(self, obs)
+        #obs = transform_obs(obs)
 
         #print(obs[48:])
 
@@ -103,7 +103,7 @@ class SubmittedAgent(Agent):
 
         self.vecBeforeLearning(env) # vec : need to setup stuff for saving
 
-        self.model.learn(total_timesteps=total_timesteps, log_interval=log_interval)
+        self.model.learn(total_timesteps=total_timesteps, log_interval=log_interval, reset_num_timesteps=False)
 
     def vecBeforeLearning(self, env):
         # updating env with oppositions

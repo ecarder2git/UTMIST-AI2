@@ -571,8 +571,9 @@ class OffPolicyAlgorithm(BaseAlgorithm):
                 opp_actor = self.actual_opps[i]
                 if opp_actor: #if None, then just leave opp_actions as 1
                     opp_obs = self._last_obs[i].copy()
-                    opp_obs[:16] = self._last_obs[i][32:] # Swapping the relevant (player-specific) stuff. [16:32] is the duplicate environment stuff like weapon spawners
-                    opp_obs[32:] = self._last_obs[i][:16]
+                    opp_obs[:16] = self._last_obs[i][32:48] # Swapping the relevant (player-specific) stuff. [16:32] is the duplicate environment stuff like weapon spawners
+                    opp_obs[32:48] = self._last_obs[i][:16]
+                    opp_obs[48], opp_obs[49] = opp_obs[49], opp_obs[48]
                     opp_actions[i] = opp_actor.predict(opp_obs, getRaw=True)
 
             full_actions = [{0:actions[i],1:opp_actions[i]} for i in range(len(actions))]

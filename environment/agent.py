@@ -39,8 +39,7 @@ from stable_baselines3.common.monitor import Monitor
 
 from stable_baselines3.common.vec_env import SubprocVecEnv, VecMonitor #vec
 from gymnasium.spaces import Box, Discrete
-from gymnasium import ActionWrapper
-from gymnasium.wrappers import TransformObservation
+from gymnasium import ActionWrapper, ObservationWrapper
 
 # ## Agents
 
@@ -1069,56 +1068,56 @@ class CustomActionWrapper(ActionWrapper):
         return obs, reward, terminated, truncated, info
 
 
-def transform_obs(x):
-    return x[:48]
-#class CustomObservationWrapper(ObservationWrapper):    # VECREMOVAL
-#    CROP_INDEX = 48
-#
-#    MAX_MOVE_FRAMES = 3 * 30
-#    obs_additional_low = np.array([0,0], dtype=np.float32)
-#    obs_additional_high = np.array([MAX_MOVE_FRAMES, MAX_MOVE_FRAMES], dtype=np.float32)
-#
-#    @staticmethod 
-#    def generate_observation_space(low, high):
-#        return Box(
-#            np.concatenate((low[:CustomObservationWrapper.CROP_INDEX], CustomObservationWrapper.obs_additional_low)), 
-#            np.concatenate((high[:CustomObservationWrapper.CROP_INDEX], CustomObservationWrapper.obs_additional_high))
-#        )
-#
-#    def __init__(self, env, observation_space):
-#        super().__init__(env)
-#        self.observation_space = observation_space 
-#
-#        self.prev_move_types = [0,0]
-#        self.move_frames = [0,0]
-#
-#    def observation(self, obs):
-#        return np.concatenate((obs[:CustomObservationWrapper.CROP_INDEX], np.array(self.move_frames)))
-#
-#    # store most recent observation in self.observation
-#    def reset(self, *args, **kwargs):
-#        obs, info = super().reset(*args, **kwargs)
-#
-#        self.prev_move_types = [0,0]
-#        self.move_frames = [0,0]
-#
-#        return obs, info
-#
-#    def step(self, *args, **kwargs):
-#        obs, reward, terminated, truncated, info = super().step(*args, **kwargs)
-#        self._step(obs)
-#        return obs, reward, terminated, truncated, info
-#    
-#    def _step(self, obs):
-#        for i, obs_i in enumerate((14, 46)):
-#            move_type = obs[obs_i]
-#
-#            if move_type != 0 and move_type == self.prev_move_types[i]:
-#                self.move_frames[i] += 1
-#                self.move_frames[i] = min(self.move_frames[i], CustomObservationWrapper.MAX_MOVE_FRAMES)
-#            else: 
-#                self.move_frames[i] = 0
-#                self.prev_move_types[i] = move_type
+#def transform_obs(x):
+#    return x[:48]
+class CustomObservationWrapper(ObservationWrapper):    # VECREMOVAL
+    CROP_INDEX = 48
+
+    MAX_MOVE_FRAMES = 3 * 30
+    obs_additional_low = np.array([0,0], dtype=np.float32)
+    obs_additional_high = np.array([MAX_MOVE_FRAMES, MAX_MOVE_FRAMES], dtype=np.float32)
+
+    @staticmethod 
+    def generate_observation_space(low, high):
+        return Box(
+            np.concatenate((low[:CustomObservationWrapper.CROP_INDEX], CustomObservationWrapper.obs_additional_low)), 
+            np.concatenate((high[:CustomObservationWrapper.CROP_INDEX], CustomObservationWrapper.obs_additional_high))
+        )
+
+    def __init__(self, env, observation_space):
+        super().__init__(env)
+        self.observation_space = observation_space 
+
+        self.prev_move_types = [0,0]
+        self.move_frames = [0,0]
+
+    def observation(self, obs):
+        return np.concatenate((obs[:CustomObservationWrapper.CROP_INDEX], np.array(self.move_frames)))
+
+    # store most recent observation in self.observation
+    def reset(self, *args, **kwargs):
+        obs, info = super().reset(*args, **kwargs)
+
+        self.prev_move_types = [0,0]
+        self.move_frames = [0,0]
+
+        return obs, info
+
+    def step(self, *args, **kwargs):
+        obs, reward, terminated, truncated, info = super().step(*args, **kwargs)
+        self._step(obs)
+        return obs, reward, terminated, truncated, info
+    
+    def _step(self, obs):
+        for i, obs_i in enumerate((14, 46)):
+            move_type = obs[obs_i]
+
+            if move_type != 0 and move_type == self.prev_move_types[i]:
+                self.move_frames[i] += 1
+                self.move_frames[i] = min(self.move_frames[i], CustomObservationWrapper.MAX_MOVE_FRAMES)
+            else: 
+                self.move_frames[i] = 0
+                self.prev_move_types[i] = move_type
 
 # Above is the moved custom wrapper classes
 def train(agent: Agent,
@@ -1142,8 +1141,12 @@ def train(agent: Agent,
                                     )
         #base_env.on_training_start()
         reward_manager.subscribe_signals(base_env.raw_env)
-        new_observation_space = Box(base_env.observation_space.low[:48], base_env.observation_space.high[:48])
-        x = CustomActionWrapper(TransformObservation(base_env, transform_obs, new_observation_space))
+        new_observation_space = CustomObservationWrapper.generate_observation_space(
+            base_env.observation_space.low, 
+            base_env.observation_space.high
+        )
+        #new_observation_space = Box(base_env.observation_space.low[:48], base_env.observation_space.high[:48])
+        x = CustomActionWrapper(CustomObservationWrapper(base_env, new_observation_space))
         return x
 
     envA = lambda: build_full_env(0)

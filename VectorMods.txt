@@ -12,7 +12,6 @@ Fancy Modification 1: All the changes are in off_policy_algorithm.py
     - Go here to change the number of episodes before saving.
 - VEC MARK 2 : Modifies the action selection thing. Note that this only applies during learning, not during prediction, so it doesn't mess with pvp_match
     - in collect_rollouts()
-    - Likely needs to be changed if obs space changes
 - VEC MARK 3 - On done (episode reset), change that env's opponent.
     - at end of collect_rollouts()
     - Go here to change likelihood of facing constant agent.
@@ -25,12 +24,6 @@ Fancy Modification 1: All the changes are in off_policy_algorithm.py
 
 
 
-
-
-Removals:
-- Removed basically everything involving the adjusted observation space (the class definitino, and its use in SubmittedAgent)
-- use search for the word "VECREMOVAL"
-- Check if VEC MARK 2 needs to be modified
 
 
 
