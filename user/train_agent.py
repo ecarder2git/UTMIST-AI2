@@ -185,30 +185,30 @@ class UserInputAgent(Agent):
         super().__init__(*args, **kwargs)
 
     def predict(self, obs):
-        action = self.act_helper.zeros()
+        action = np.zeros(10)#self.act_helper.zeros()
        
         keys = pygame.key.get_pressed()
         if keys[pygame.K_w]:
-            action = self.act_helper.press_keys(['w'], action)
+            action[0] = 1#action = self.act_helper.press_keys(['w'], action)
         if keys[pygame.K_a]:
-            action = self.act_helper.press_keys(['a'], action)
+            action[1] = 1#action = self.act_helper.press_keys(['a'], action)
         if keys[pygame.K_s]:
-            action = self.act_helper.press_keys(['s'], action)
+            action[2] = 1#action = self.act_helper.press_keys(['s'], action)
         if keys[pygame.K_d]:
-            action = self.act_helper.press_keys(['d'], action)
+            action[3] = 1#action = self.act_helper.press_keys(['d'], action)
         if keys[pygame.K_SPACE]:
-            action = self.act_helper.press_keys(['space'], action)
+            action[4] = 1#action = self.act_helper.press_keys(['space'], action)
         # h j k l
         if keys[pygame.K_h]:
-            action = self.act_helper.press_keys(['h'], action)
+            action[5] = 1#action = self.act_helper.press_keys(['h'], action)
         if keys[pygame.K_j]:
-            action = self.act_helper.press_keys(['j'], action)
+            action[7] = 1#action = self.act_helper.press_keys(['j'], action)
         if keys[pygame.K_k]:
-            action = self.act_helper.press_keys(['k'], action)
-        if keys[pygame.K_l]:
-            action = self.act_helper.press_keys(['l'], action)
+            action[8] = 1#action = self.act_helper.press_keys(['k'], action)
+        if keys[pygame.K_l]:        # YES, THIS IS OUT OF ORDER FOR SOME UNBELIEVABLE REASON!!!
+            action[6] = 1#action = self.act_helper.press_keys(['l'], action)
         if keys[pygame.K_g]:
-            action = self.act_helper.press_keys(['g'], action)
+            action[9] = 1#action = self.act_helper.press_keys(['g'], action)
 
         return action
 
