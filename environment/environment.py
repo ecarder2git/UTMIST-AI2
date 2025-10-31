@@ -39,6 +39,44 @@ import skvideo.io
 from IPython.display import Video
 
 
+#vectormod
+pg = pygame
+pgSurf = pygame.surface.Surface
+class PickleableSurface(pgSurf):
+    def __init__(self, *arg,**kwarg):
+        size = arg[0]
+
+        # size given is not an iterable,  but the object of pgSurf itself
+        if (isinstance(size, pgSurf)):
+            pgSurf.__init__(self, size=size.get_size(), flags=size.get_flags())
+            self.surface = self
+            self.name='test'
+            self.blit(size, (0, 0))
+
+        else:
+            pgSurf.__init__(self, *arg, **kwarg)
+            self.surface = self
+            self.name = 'test'
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        surface = state["surface"]
+
+        _1 = pg.image.tostring(surface.copy(), "RGBA")
+        _2 = surface.get_size()
+        _3 = surface.get_flags()
+        state["surface_string"] = (_1, _2, _3)
+        return state
+
+    def __setstate__(self, state):
+        surface_string, size, flags = state["surface_string"]
+
+        pgSurf.__init__(self, size=size, flags=flags)
+
+        s=pg.image.fromstring(surface_string, size, "RGBA")
+        state["surface"] =s;
+        self.blit(s,(0,0));self.surface=self;
+        self.__dict__.update(state)
 
 # ### MalachiteEnv Class
 
@@ -551,10 +589,10 @@ class Camera():
         new_height = int(bg_image.get_height() * scale_factor)
 
         # Assign new background img
-        self.background_image = pygame.transform.scale(
+        self.background_image = PickleableSurface(pygame.transform.scale(
             bg_image,
             (new_width, new_height)
-        )
+        ))
 
     def reset(self, env):
         self.space = env.space
@@ -633,7 +671,7 @@ class Camera():
 
         # Expose the canvas for editing
         if mode == RenderMode.RGB_ARRAY:
-            self.canvas = pygame.Surface((self.window_width, self.window_height))
+            self.canvas = PickleableSurface((self.window_width, self.window_height))
         #canvas = pygame.display.set_mode((self.window_width, self.window_height))
         #self.canvas.fill((0, 0, 0))
         self.canvas.blit(self.background_image, (0, 0))   
@@ -1330,10 +1368,10 @@ class WarehouseBrawl(MalachiteEnv[np.ndarray, np.ndarray, int]):
         self.objects['opponent'] = p2
 
          # Sprite to see on screen
-        spear_img = pygame.Surface((40,16), pygame.SRCALPHA)
+        spear_img = PickleableSurface((40,16), pygame.SRCALPHA)
         spear_img.fill((255, 0, 0))
 
-        hammer_img = pygame.Surface((40,16), pygame.SRCALPHA)
+        hammer_img = PickleableSurface((40,16), pygame.SRCALPHA)
         hammer_img.fill((255, 0, 0))
 
       #  spear_img = pygame.image.load("/content/Weapon Pool/spear.png")
@@ -3207,7 +3245,7 @@ class AnimationSprite2D(GameObject):
         for frame in ImageSequence.Iterator(gif):
             # Convert and scale frame
 
-            pygame_frame = pygame.image.fromstring(frame.convert("RGBA").tobytes(), frame.size, "RGBA")
+            pygame_frame = PickleableSurface(pygame.image.fromstring(frame.convert("RGBA").tobytes(), frame.size, "RGBA"))
 
             # if self.agent_id == 1:
             #     # Convert the pygame surface to a numpy array.

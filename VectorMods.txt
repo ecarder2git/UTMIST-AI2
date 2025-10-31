@@ -1,0 +1,68 @@
+# all of the changes for the sb3 library are in the file offPolicyRecord.txt under UTMIST-AI2 (main folder). Just copy and paste the whole file
+# into off_policy_algorithm.py which is in Lib->Site-Packages-> stable_baselines3 ->common->off_policy_algorithm.py
+
+
+
+
+
+Fancy mods are done to the libraries, and are not captured by github
+Fancy Modification 1: All the changes are in off_policy_algorithm.py
+- VEC MARK 1 : Saves the model every x episodes. 
+    - in learn()
+    - Go here to change the number of episodes before saving.
+- VEC MARK 2 : Modifies the action selection thing. Note that this only applies during learning, not during prediction, so it doesn't mess with pvp_match
+    - in collect_rollouts()
+    - Likely needs to be changed if obs space changes
+- VEC MARK 3 - On done (episode reset), change that env's opponent.
+    - at end of collect_rollouts()
+    - Go here to change likelihood of facing constant agent.
+
+
+
+
+
+
+
+
+
+
+
+Removals:
+- Removed basically everything involving the adjusted observation space (the class definitino, and its use in SubmittedAgent)
+- use search for the word "VECREMOVAL"
+- Check if VEC MARK 2 needs to be modified
+
+
+
+
+
+
+
+
+
+
+
+
+
+Other notes:
+Std Modification 1: PickleableSurface in environment.py
+- self.canvas, backgroundimage in Camera
+- spear/hammer img in _setup of warehousebrawl
+- pygameframe in AnimationSprite2D
+
+Std Modification 2: SubProcVecEnv:
+- Imports added as needed
+- train() takes lambda constructors instead of objects
+- Modified train() in agent.py and main() in train_agent.py heavily
+- Moved custom wrapper classes over to agent.py
+- Heavily modified selfPlayWarehouse
+    - Kind of just went throught and struck out every function
+
+Std Modification 3: my_agent.py is modified to work with saving.
+- added SubmittedAgent.updateOpponentList
+- added SubmittedAgent.vecBeforeLearning
+- changed imports slightly
+
+Std Modification 4: Misc
+- Agent class has act_helper and obs_helper commented out
+- Actionwrapper has to handle the fact inputs are now a dict of two Discrete(42), instead of one.

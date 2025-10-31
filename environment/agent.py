@@ -37,6 +37,10 @@ from IPython.display import Video
 
 from stable_baselines3.common.monitor import Monitor
 
+from stable_baselines3.common.vec_env import SubprocVecEnv, VecMonitor #vec
+from gymnasium.spaces import Box, Discrete
+from gymnasium import ActionWrapper
+from gymnasium.wrappers import TransformObservation
 
 # ## Agents
 
@@ -67,9 +71,9 @@ class Agent(ABC):
         else:
             self_env = env
         self.observation_space = self_env.observation_space
-        self.obs_helper = self_env.obs_helper
+        #self.obs_helper = self_env.obs_helper
         self.action_space = self_env.action_space
-        self.act_helper = self_env.act_helper
+        #self.act_helper = self_env.act_helper
         self.env = env
         self._initialize()
         self.initialized = True
@@ -502,18 +506,18 @@ class SelfPlayWarehouseBrawl(gymnasium.Env):
 
 
         # Give OpponentCfg references, and normalize probabilities
-        self.opponent_cfg.env = self
-        self.opponent_cfg.validate_probabilities()
+        #self.opponent_cfg.env = self       # vec: opponent distribution affected in VEC MARK 3
+        #self.opponent_cfg.validate_probabilities()
 
-        # Check if using self-play
-        for key, value in self.opponent_cfg.opponents.items():
-            if isinstance(value[1], SelfPlayHandler):
-                assert self.save_handler is not None, "Save handler must be specified for self-play"
+        # Check if using self-play      - VEC: Selfplay is handled by agent, not environment.
+        #for key, value in self.opponent_cfg.opponents.items():
+        #    if isinstance(value[1], SelfPlayHandler):
+        #        assert self.save_handler is not None, "Save handler must be specified for self-play"
 
-                # Give SelfPlayHandler references
-                selfplay_handler: SelfPlayHandler = value[1]
-                selfplay_handler.save_handler = self.save_handler
-                selfplay_handler.env = self       
+        #        # Give SelfPlayHandler references
+        #        selfplay_handler: SelfPlayHandler = value[1]
+        #        selfplay_handler.save_handler = self.save_handler
+        #        selfplay_handler.env = self       
 
         self.raw_env = WarehouseBrawl(resolution=resolution, train_mode=True)
         self.action_space = self.raw_env.action_space
@@ -521,28 +525,28 @@ class SelfPlayWarehouseBrawl(gymnasium.Env):
         self.observation_space = self.raw_env.observation_space
         self.obs_helper = self.raw_env.obs_helper
 
-    def on_training_start(self):
-        # Update SaveHandler
-        if self.save_handler is not None:
-            self.save_handler.update_info()
+    #def on_training_start(self):       # vec: no longer used, might as well comment out
+    #    # Update SaveHandler
+    #    if self.save_handler is not None:
+    #        self.save_handler.update_info()
 
-    def on_training_end(self):
-        if self.save_handler is not None:
-            self.save_handler.agent.update_num_timesteps(self.save_handler.num_timesteps)
-            self.save_handler.save_agent()
+    #def on_training_end(self):
+    #    if self.save_handler is not None:
+    #        self.save_handler.agent.update_num_timesteps(self.save_handler.num_timesteps)
+    #        self.save_handler.save_agent()
 
     def step(self, action):
 
-        full_action = {
-            0: action,
-            1: self.opponent_agent.predict(self.opponent_obs),
-        }
+        #full_action = { # Vec: full action is passed in by agent
+        #    0: action,
+        #    1: self.opponent_agent.predict(self.opponent_obs),
+        #}
 
-        observations, rewards, terminated, truncated, info = self.raw_env.step(full_action)
-        self.opponent_obs = observations[1]
+        observations, rewards, terminated, truncated, info = self.raw_env.step(action)#full_action)
+        #self.opponent_obs = observations[1]    # vec: opp_obs is handled by agent, this isn't used since above opp.predict(obs) is commented out
      
-        if self.save_handler is not None:
-            self.save_handler.process()
+        #if self.save_handler is not None:  # vec: obvious
+        #    self.save_handler.process()
 
         if self.reward_manager is None:
             reward = rewards[0]
@@ -558,10 +562,10 @@ class SelfPlayWarehouseBrawl(gymnasium.Env):
         self.reward_manager.reset()
 
         # Select agent
-        new_agent: Agent = self.opponent_cfg.on_env_reset()
-        if new_agent is not None:
-            self.opponent_agent: Agent = new_agent
-        self.opponent_obs = observations[1]
+        #new_agent: Agent = self.opponent_cfg.on_env_reset()
+        #if new_agent is not None:
+        #    self.opponent_agent: Agent = new_agent
+        #self.opponent_obs = observations[1]
 
 
         self.games_done += 1
@@ -999,39 +1003,189 @@ def plot_results(log_folder, title="Learning Curve"):
     # save to file
     plt.savefig(log_folder + title + ".png")
 
+
+
+class CustomActionWrapper(ActionWrapper):
+
+    @staticmethod
+    def discrete_action_to_keys(action, obs):
+        '''Converts our discrete action space to the original multi-binary box action space.
+        ORIGINAL ACTION SPACE (Box): w, a, s, d, space, h, l, j, k, g'''
+
+        move_data = action % 6
+        att_jmp_dodge_data = action // 6
+
+        # process move_data
+        x_move = move_data % 3 # 0=left, 1=nothing, 2=right ('a' & 'd' keys)
+        down = move_data // 3 # 0=nothing, 1=pressed ('s' key)
+
+        # process att_jmp_dodge_data
+        dodge = 0
+        if att_jmp_dodge_data == 6: # dodge
+            dodge = 1
+            att_jmp_dodge_data = 0
+
+        attack = att_jmp_dodge_data % 3 # 0=nothing, 1=light, 2=heavy ('j' & 'k' keys)
+        jump = att_jmp_dodge_data // 3 # 0=nothing, 1=jump ('space' key)
+
+        # spam pickup if no weapon; if weapon, don't press to avoid dropping weapon
+        pickup = obs[15] == 0
+
+        return np.array((
+            0, # w (aim up)
+            x_move == 0, # a (move left)
+            down, # s (move down)
+            x_move == 2, # d (move right)
+            jump, # space (jump)
+            pickup, # h (pickup)
+            dodge, # l (dodge)
+            attack == 1, # j (light attack)
+            attack == 2, # k (heavy attack)
+            0, # g (taunt)
+        ))
+
+    def __init__(self, env):
+        super().__init__(env)
+
+        # movement: {left, nothing, right}×{down, nothing} = 3 * 2 = 6 combinations
+        # attack/jump/dodge: ({light, heavy, nothing}×{jump, nothing}) ∪ {dodge} = 3*2 + 1 = 7 combinations
+        # 6 * 7 = 42 total action combinations
+        self.action_space = Discrete(42) # [0, 42]
+
+    def action(self, action):
+        a = self.discrete_action_to_keys(action[0], self.observation)
+        b = self.discrete_action_to_keys(action[1], self.observation[32:]) # 32: is sufficient for these purposes
+        return {0:a, 1:b}
+
+    # store most recent observation in self.observation
+    def reset(self, *args, **kwargs):
+        obs, info = super().reset(*args, **kwargs)
+        self.observation = obs
+        return obs, info
+
+    def step(self, *args, **kwargs):
+        obs, reward, terminated, truncated, info = super().step(*args, **kwargs)
+        self.observation = obs
+        return obs, reward, terminated, truncated, info
+
+
+def transform_obs(x):
+    return x[:48]
+#class CustomObservationWrapper(ObservationWrapper):    # VECREMOVAL
+#    CROP_INDEX = 48
+#
+#    MAX_MOVE_FRAMES = 3 * 30
+#    obs_additional_low = np.array([0,0], dtype=np.float32)
+#    obs_additional_high = np.array([MAX_MOVE_FRAMES, MAX_MOVE_FRAMES], dtype=np.float32)
+#
+#    @staticmethod 
+#    def generate_observation_space(low, high):
+#        return Box(
+#            np.concatenate((low[:CustomObservationWrapper.CROP_INDEX], CustomObservationWrapper.obs_additional_low)), 
+#            np.concatenate((high[:CustomObservationWrapper.CROP_INDEX], CustomObservationWrapper.obs_additional_high))
+#        )
+#
+#    def __init__(self, env, observation_space):
+#        super().__init__(env)
+#        self.observation_space = observation_space 
+#
+#        self.prev_move_types = [0,0]
+#        self.move_frames = [0,0]
+#
+#    def observation(self, obs):
+#        return np.concatenate((obs[:CustomObservationWrapper.CROP_INDEX], np.array(self.move_frames)))
+#
+#    # store most recent observation in self.observation
+#    def reset(self, *args, **kwargs):
+#        obs, info = super().reset(*args, **kwargs)
+#
+#        self.prev_move_types = [0,0]
+#        self.move_frames = [0,0]
+#
+#        return obs, info
+#
+#    def step(self, *args, **kwargs):
+#        obs, reward, terminated, truncated, info = super().step(*args, **kwargs)
+#        self._step(obs)
+#        return obs, reward, terminated, truncated, info
+#    
+#    def _step(self, obs):
+#        for i, obs_i in enumerate((14, 46)):
+#            move_type = obs[obs_i]
+#
+#            if move_type != 0 and move_type == self.prev_move_types[i]:
+#                self.move_frames[i] += 1
+#                self.move_frames[i] = min(self.move_frames[i], CustomObservationWrapper.MAX_MOVE_FRAMES)
+#            else: 
+#                self.move_frames[i] = 0
+#                self.prev_move_types[i] = move_type
+
+# Above is the moved custom wrapper classes
 def train(agent: Agent,
-          reward_manager: RewardManager,
-          save_handler: Optional[SaveHandler]=None,
+          rewarder, # -Need to pass a lambda constructor function #reward_manager: RewardManager,
+          save_handler, # -Need lambda constructor # : Optional[SaveHandler]=None,
           opponent_cfg: OpponentsCfg=OpponentsCfg(),
           resolution: CameraResolution=CameraResolution.LOW,
           train_timesteps: int=400_000,
           train_logging: TrainLogging=TrainLogging.PLOT
           ):
+    
+    #vectormod
+    def build_full_env(i):
+        print(i)
+        #saver = save_handler(i)
+        reward_manager = rewarder()
+        base_env = SelfPlayWarehouseBrawl(reward_manager=reward_manager,
+                                    opponent_cfg=None,#opponent_cfg(),
+                                    save_handler=None,
+                                    resolution=resolution
+                                    )
+        #base_env.on_training_start()
+        reward_manager.subscribe_signals(base_env.raw_env)
+        new_observation_space = Box(base_env.observation_space.low[:48], base_env.observation_space.high[:48])
+        x = CustomActionWrapper(TransformObservation(base_env, transform_obs, new_observation_space))
+        return x
+
+    envA = lambda: build_full_env(0)
+    envB = lambda: build_full_env(1)
+    envC = lambda: build_full_env(2)
+    envD = lambda: build_full_env(3)
+    envE = lambda: build_full_env(4)
+    envF = lambda: build_full_env(5)
+    envG = lambda: build_full_env(6)
+    envH = lambda: build_full_env(7)
+    env = SubprocVecEnv([ envA, envB, envC, envD, envE, envF, envG, envH])
+    print(env) # Just to verify it was created correctly
+
     # Create environment
-    env = SelfPlayWarehouseBrawl(reward_manager=reward_manager,
-                                 opponent_cfg=opponent_cfg,
-                                 save_handler=save_handler,
-                                 resolution=resolution
-                                 )
-    reward_manager.subscribe_signals(env.raw_env)
+    #env = SelfPlayWarehouseBrawl(reward_manager=reward_manager,
+    #                             opponent_cfg=opponent_cfg,
+    #                             save_handler=save_handler,
+    #                             resolution=resolution
+    #                             )
+    #                             
+    #reward_manager.subscribe_signals(env.raw_env)
+
+
     if train_logging != TrainLogging.NONE:
-        # Create log dir
-        log_dir = f"{save_handler._experiment_path()}/" if save_handler is not None else "/tmp/gym/"
+        # Create log dir    - #Vec: Not going to bother. Just hardcoding logdir.
+        log_dir = "checkpoints/sole_logger_1"# f"{save_handler._experiment_path()}/" if save_handler is not None else "/tmp/gym/"
         os.makedirs(log_dir, exist_ok=True)
 
         # Logs will be saved in log_dir/monitor.csv
-        env = Monitor(env, log_dir)
+        env = VecMonitor(env, log_dir)
 
     base_env = env.unwrapped if hasattr(env, 'unwrapped') else env
     try:
         agent.get_env_info(base_env)
-        base_env.on_training_start()
+        #base_env.on_training_start()       # vec : these only affect saving, which is done via a different system now.
         agent.learn(env, total_timesteps=train_timesteps, verbose=1)
-        base_env.on_training_end()
+        #base_env.on_training_end()
     except KeyboardInterrupt:
-        if save_handler is not None:
-            save_handler.agent.update_num_timesteps(save_handler.num_timesteps)
-            save_handler.save_agent()
+        #if save_handler is not None:
+        #    save_handler.agent.update_num_timesteps(save_handler.num_timesteps)
+        #    save_handler.save_agent()
+        pass
 
     env.close()
 

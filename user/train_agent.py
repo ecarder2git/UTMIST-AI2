@@ -584,35 +584,42 @@ if __name__ == '__main__':
     #my_agent = RecurrentPPOAgent(file_path='checkpoints/experiment_3/rl_model_120006_steps.zip')
 
     # Reward manager
-    reward_manager = gen_reward_manager()
+    #reward_manager = gen_reward_manager()
     # Self-play settings
-    selfplay_handler = SelfPlayRandom(
-        partial(type(my_agent)), # Agent class and its keyword arguments
-                                 # type(my_agent) = Agent class
-    )
+    #selfplay_handler = SelfPlayRandom(
+    #    partial(type(my_agent)), # Agent class and its keyword arguments
+    #                             # type(my_agent) = Agent class
+    #)
 
     # Set save settings here:
-    save_handler = SaveHandler(
-        agent=my_agent, # Agent to save
-        save_freq=20_000, # Save frequency
-        max_saved=40, # Maximum number of saved models
-        save_path='checkpoints', # Save path
-        run_name='experiment_1',
-        mode=SaveHandlerMode.FORCE # Save mode, FORCE or RESUME
-    )
+    #save_handler = SaveHandler(
+    #    agent=my_agent, # Agent to save
+    #    save_freq=20_000, # Save frequency
+    #    max_saved=40, # Maximum number of saved models
+    #    save_path='checkpoints', # Save path
+    #    run_name='experiment_1',
+    #    mode=SaveHandlerMode.FORCE # Save mode, FORCE or RESUME
+    #)
 
     # Set opponent settings here:
-    opponent_specification = {
-                    'self_play': (8, selfplay_handler),
-                    'constant_agent': (0.5, partial(ConstantAgent)),
-                    'based_agent': (1.5, partial(BasedAgent)),
-                }
-    opponent_cfg = OpponentsCfg(opponents=opponent_specification)
+    #opponent_specification = {     # Irrelevant
+    #                'self_play': (8, selfplay_handler),
+    #                'constant_agent': (0.5, partial(ConstantAgent)),
+    #                'based_agent': (1.5, partial(BasedAgent)),
+    #            }
+    #opponent_cfg = OpponentsCfg(opponents=opponent_specification)
 
     train(my_agent,
-        reward_manager,
-        save_handler,
-        opponent_cfg,
+        lambda : gen_reward_manager(),
+        lambda i : SaveHandler(
+                agent=my_agent, # Agent to save
+                save_freq=100_000, # Save frequency
+                max_saved=40, # Maximum number of saved models
+                save_path='checkpoints', # Save path
+                run_name='experiment_alpha_' + str(i),
+                mode=SaveHandlerMode.FORCE # Save mode, FORCE or RESUME
+            ),
+        None,
         CameraResolution.LOW,
         train_timesteps=1_000_000_000,
         train_logging=TrainLogging.PLOT
