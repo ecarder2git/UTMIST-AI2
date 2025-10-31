@@ -51,10 +51,11 @@ class SubmittedAgent(Agent):
         #     for i in range(self.N_ENVS)])
 
     def _initialize(self) -> None:
-        self.new_observation_space = CustomObservationWrapper.generate_observation_space(
-            self.observation_space.low, 
-            self.observation_space.high
-        )
+        #self.new_observation_space = CustomObservationWrapper.generate_observation_space(
+        #    self.observation_space.low, 
+        #    self.observation_space.high
+        #)
+        self.file_path = self._gdown()
 
         if self.file_path is None:
 
@@ -68,20 +69,20 @@ class SubmittedAgent(Agent):
             self.model = CustomDQN.load(self.file_path)
 
     def _gdown(self) -> str:
-        # data_path = "rl-model.zip"
-        # if not os.path.isfile(data_path):
-        #     print(f"Downloading {data_path}...")
-        #     # Place a link to your PUBLIC model data here. This is where we will download it from on the tournament server.
-        #     url = "https://drive.google.com/file/d/1JIokiBOrOClh8piclbMlpEEs6mj3H1HJ/view?usp=sharing"
-        #     gdown.download(url, output=data_path, fuzzy=True)
-        # return data_path
+        data_path = "rl-model.zip"
+        if not os.path.isfile(data_path):
+            print(f"Downloading {data_path}...")
+            # Place a link to your PUBLIC model data here. This is where we will download it from on the tournament server.
+            url = "https://drive.google.com/file/d/11imPJdS479TB8Rt5oIwlpjrDnhnsjoBv/view?usp=sharing"
+            gdown.download(url, output=data_path, fuzzy=True)
+        return data_path
         return
 
     def predict(self, obs):
         # convert to new observation space
-        CustomObservationWrapper._step(self, obs)
-        obs = CustomObservationWrapper.observation(self, obs)
-
+        #CustomObservationWrapper._step(self, obs)
+        #obs = CustomObservationWrapper.observation(self, obs)
+        obs = obs[:48]
         #print(obs[48:])
 
         action, _ = self.model.predict(obs)
