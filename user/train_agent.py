@@ -724,8 +724,8 @@ def gen_reward_manager():
         #'head_to_weapon_reward': RewTerm(func=head_to_weapon_reward, weight=0.03),
         'danger_zone_high_reward': RewTerm(func=danger_zone_high_reward, weight=0.5),
         'danger_zone_sides_reward': RewTerm(func=danger_zone_sides_reward, weight=0.5),
-        'dodge_reward': RewTerm(func=dodge_reward, weight=0.1),
-        'low_health_damage_penalty': RewTerm(func=low_health_damage_penalty, weight=1.0),
+        'dodge_reward': RewTerm(func=dodge_reward, weight=0.3),
+        'low_health_damage_penalty': RewTerm(func=low_health_damage_penalty, weight=0.5),
         'edge_guard_reward': RewTerm(func=edge_guard_reward, weight=0.2),
 
         #'holding_more_than_3_keys': RewTerm(func=holding_more_than_3_keys, weight=-0.01),
