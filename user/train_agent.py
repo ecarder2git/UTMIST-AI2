@@ -435,6 +435,30 @@ def danger_zone_reward(
 
     return reward * env.dt
 
+def danger_zone_high_reward(
+    env: WarehouseBrawl,
+    zone_penalty: int = 1,
+    zone_height: float = -3.0
+) -> float:
+    """
+    Applies a penalty for every time frame player surpases a certain height threshold in the environment.
+
+    Args:
+        env (WarehouseBrawl): The game environment.
+        zone_penalty (int): The penalty applied when the player is in the danger zone.
+        zone_height (float): The height threshold defining the danger zone.
+
+    Returns:
+        float: The computed penalty as a tensor.
+    """
+    # Get player object from the environment
+    player: Player = env.objects["player"]
+
+    # Apply penalty if the player is in the danger zone
+    reward = -zone_penalty if player.body.position.y <= zone_height else 0.0
+
+    return reward * env.dt
+
 def in_state_reward(
     env: WarehouseBrawl,
     desired_state: Type[PlayerObjectState]=BackDashState,
@@ -665,17 +689,19 @@ Add your dictionary of RewardFunctions here using RewTerms
 '''
 def gen_reward_manager():
     reward_functions = {
-        'target_height_reward': RewTerm(func=base_height_l2, weight=0.05, params={'target_height': -4, 'obj_name': 'player'}),
+        #'target_height_reward': RewTerm(func=base_height_l2, weight=0.05, params={'target_height': -4, 'obj_name': 'player'}),
         'danger_zone_reward': RewTerm(func=danger_zone_reward, weight=0.5),
         'damage_interaction_reward': RewTerm(func=damage_interaction_reward, weight=1.0),
         'head_to_middle_reward': RewTerm(func=head_to_middle_reward, weight=0.01),
         'head_to_opponent': RewTerm(func=head_to_opponent, weight=0.05),
-        'penalize_attack_reward': RewTerm(func=in_state_reward, weight=-0.04, params={'desired_state': AttackState}),
+        #'penalize_attack_reward': RewTerm(func=in_state_reward, weight=-0.04, params={'desired_state': AttackState}),
         
         # Custom Rewards
-        'head_to_weapon_reward': RewTerm(func=head_to_weapon_reward, weight=0.03),
+        #'head_to_weapon_reward': RewTerm(func=head_to_weapon_reward, weight=0.03),
+        'danger_zone_high_reward': RewTerm(func=danger_zone_high_reward, weight=0.5),
         'dodge_reward': RewTerm(func=dodge_reward, weight=0.1),
         'low_health_damage_penalty': RewTerm(func=low_health_damage_penalty, weight=1.0),
+        'edge_guard_reward': RewTerm(func=edge_guard_reward, weight=0.2),
 
         #'holding_more_than_3_keys': RewTerm(func=holding_more_than_3_keys, weight=-0.01),
         #'taunt_reward': RewTerm(func=in_state_reward, weight=0.2, params={'desired_state': TauntState}),
