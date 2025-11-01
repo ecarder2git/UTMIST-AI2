@@ -407,8 +407,8 @@ def damage_interaction_reward(
 def danger_zone_reward(
     env: WarehouseBrawl,
     zone_penalty: int = 1,
-    zone_height_left: float = 3,
-    zone_height_right: float = 1
+    zone_height_left: float = 2.8,
+    zone_height_right: float = 0.8
 ) -> float:
     """
     Applies a penalty for every time frame player surpases a certain height threshold in the environment.
@@ -482,7 +482,7 @@ def danger_zone_high_reward(
 def danger_zone_middle_reward(
     env: WarehouseBrawl,
     zone_penalty: int = 1,
-    zone_height: float = 0
+    zone_height: float = -0.49
 ) -> float:
     """
     Applies a penalty for every time frame player surpases a certain height threshold in the environment.
@@ -673,10 +673,10 @@ def edge_guard_reward(
     RIGHT_EDGE = 7.2
 
     if opponent.body.position.x < LEFT_EDGE:
-        if player.body.position.x < LEFT_EDGE + 1.5:
+        if player.body.position.x < LEFT_EDGE + 1.5 and player.body.position.x > LEFT_EDGE:
             reward = 1.0 # Reward for edge-guarding on the left side
     elif opponent.body.position.x > RIGHT_EDGE:
-        if player.body.position.x > RIGHT_EDGE - 1.5:
+        if player.body.position.x > RIGHT_EDGE - 1.5 and player.body.position.x < RIGHT_EDGE:
             reward = 1.0 # Reward for edge-guarding on the right side
         
     return reward * env.dt
@@ -760,7 +760,7 @@ The main function runs training. You can change configurations such as the Agent
 '''
 if __name__ == '__main__':
     # Create agent
-    my_agent = SubmittedAgent(file_path="checkpoints/alpha_1/v_34699.zip")
+    my_agent = SubmittedAgent(file_path="checkpoints/alpha_1/v_39099.zip")
 
     # Start here if you want to train from scratch. e.g:
     #my_agent = RecurrentPPOAgent()
@@ -806,6 +806,6 @@ if __name__ == '__main__':
             ),
         None,
         CameraResolution.LOW,
-        train_timesteps=5_000_000,
+        train_timesteps=40_000_000,
         train_logging=TrainLogging.PLOT
     )

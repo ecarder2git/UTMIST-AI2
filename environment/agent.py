@@ -1235,6 +1235,8 @@ def run_real_time_match(agent_1: UserInputAgent, agent_2: Agent, max_timesteps=3
     obs_1 = observations[0]
     obs_2 = observations[1]
 
+    print("Agent 1 Pos", obs_1[0:2])
+
     if not agent_1.initialized: agent_1.get_env_info(env)
     if not agent_2.initialized: agent_2.get_env_info(env)
 
