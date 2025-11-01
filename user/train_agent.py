@@ -600,6 +600,29 @@ def low_health_damage_penalty(
         return -player.damage_taken_this_frame / scale  
     return 0.0
 
+def edge_guard_reward(
+    env: WarehouseBrawl,
+)   -> float:
+    
+    "Reward for successfully edge-guarding an opponent."
+
+    player: Player = env.objects["player"]
+    opponent: Player = env.objects["opponent"]
+
+    LEFT_EDGE_X = -7.22
+    LEFT_EDGE_Y = 2.45
+
+    RIGHT_EDGE_X = 7.08
+    RIGHT_EDGE_Y = 0.45
+
+    if opponent.body.position.x < LEFT_EDGE_X and opponent.body.position.y < LEFT_EDGE_Y:
+        if player.body.position.x < opponent.body.position.x + 2.0:
+            return 1.0  # Reward for edge-guarding on the left side
+    elif opponent.body.position.x > RIGHT_EDGE_X and opponent.body.position.y < RIGHT_EDGE_Y:
+        if player.body.position.x > opponent.body.position.x - 2.0:
+            return 1.0  # Reward for edge-guarding on the right side
+        
+    return 0.0
 
 # ---------------------------------------------------------------------------------
 # ----------------------------- SIGNAL REWARDS ------------------------------------
