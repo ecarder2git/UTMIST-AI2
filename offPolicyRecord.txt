@@ -350,7 +350,7 @@ class OffPolicyAlgorithm(BaseAlgorithm):
                     self.train(batch_size=self.batch_size, gradient_steps=gradient_steps)
 
 
-            if self._episode_num % 3 == 1:      # VEC MARK 1 - SAVING
+            if self._episode_num % 100 == 99:      # VEC MARK 1 - SAVING
                 if not saved: # this loops gets run many times before an episode completes, this ensures it only saves once
                     saved = True
                     self.save("checkpoints/alpha_1/v_" + str(self._episode_num) + ".zip", exclude=["opp_agents", "subAgent", "actual_opps", "subAgentClass", "weapon_attacks_mapping","attacks","spear_attacks","hammer_attacks"])
@@ -612,7 +612,7 @@ class OffPolicyAlgorithm(BaseAlgorithm):
             for idx, done in enumerate(dones):
                 if done:
                     # VEC MARK 3 - On done (episode reset), change that env's opponent.
-                    if np.random.random() < 0.2: # Chance of constant agent
+                    if np.random.random() < 1.2: # Chance of constant agent
                         self.actual_opps[idx] = None # None represents constant_agent
                         #print(f"Selecting new agent for env {idx}:NONETYPE\n\tNewOppActuals:{self.actual_opps}")
                     else:
