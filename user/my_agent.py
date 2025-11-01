@@ -59,9 +59,9 @@ class SubmittedAgent(Agent):
         #    self.observation_space.high
         #)
 
+
+        self.file_path = self._gdown()
         print("INITALIZATION",self.file_path) # vec: useful to know when a new agent is created
-
-
         if self.file_path is None:
 
             self.model = CustomDQN(
@@ -77,13 +77,13 @@ class SubmittedAgent(Agent):
             self.model = CustomDQN.load(self.file_path)
 
     def _gdown(self) -> str:
-        # data_path = "rl-model.zip"
-        # if not os.path.isfile(data_path):
-        #     print(f"Downloading {data_path}...")
-        #     # Place a link to your PUBLIC model data here. This is where we will download it from on the tournament server.
-        #     url = "https://drive.google.com/file/d/1JIokiBOrOClh8piclbMlpEEs6mj3H1HJ/view?usp=sharing"
-        #     gdown.download(url, output=data_path, fuzzy=True)
-        # return data_path
+        data_path = "rl-model.zip"
+        if not os.path.isfile(data_path):
+            print(f"Downloading {data_path}...")
+            # Place a link to your PUBLIC model data here. This is where we will download it from on the tournament server.
+            url = "https://drive.google.com/file/d/1G30U9YB7kSm_qRgLHmqn5jubfqF8iaR0/view?usp=sharing"
+            gdown.download(url, output=data_path, fuzzy=True)
+        return data_path
         return
 
     def predict(self, obs, getRaw=False):
