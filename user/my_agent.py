@@ -312,7 +312,7 @@ class CustomDQN(QRDQN):
 
         pred_opp_hitboxes = []
 
-        while opp_stun_frames > frames_progressed or opp_dodge_timer > frames_progressed or opp_power is not None:
+        while opp_stun_frames - 1 > frames_progressed or opp_dodge_timer > frames_progressed or opp_power is not None:
             pred_opp_positions.append(pred_opp_pos.copy())
 
             if opp_dodge_timer > frames_progressed: # dodging (staying in place); position is fixed
@@ -421,7 +421,7 @@ class CustomDQN(QRDQN):
                                     break # this attack is no good; runs into opp attack
 
                                 # check for hit at last pred frame = first frame without invulnerability
-                                if (opp_hitboxes is not None or frames_progressed == len(pred_opp_positions) - 1) and \
+                                if opp_dodge_timer <= frames_progressed and \
                                     self.check_power_hit(power, facing_dir, pred_pos, pred_opp_positions[frames_progressed]):
 
                                     #print(frames_progressed, "Combo", facing_dir, ('n','d','s')[move_dir_type], ('L','H')[is_heavy], ('','J')[jump])

@@ -797,6 +797,6 @@ if __name__ == '__main__':
             ),
         None,
         CameraResolution.LOW,
-        train_timesteps=10_000_000,
+        train_timesteps=40_000_000,
         train_logging=TrainLogging.PLOT
     )
