@@ -630,7 +630,7 @@ def dodge_reward(
 
     # Check if the opponent is attacking and the player is in a dodge state
     if isinstance(opponent.state, AttackState) and isinstance(player.state, DodgeState):
-        if is_close_proximity_x and is_close_proximity_y and player.damage_taken_this_frame == 0:
+        if is_close_proximity_x and is_close_proximity_y:
             return 1.0 / DODGE_FRAMES  # Reward for dodging
         
     return 0.0
