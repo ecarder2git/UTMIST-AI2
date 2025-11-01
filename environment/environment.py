@@ -3517,7 +3517,7 @@ class Player(GameObject):
                     # Spawner active_weapon being None (inactive) means that we zero out all values
                     x_norm, y_norm, weapon_type = 0, 0, 0
 
-                obs.extend([x_norm, y_norm, weapon_type])
+                obs.extend( [x_norm, y_norm, weapon_type])
             
             except IndexError:
                 # If current spawner inactive (out of index), set as zero array
