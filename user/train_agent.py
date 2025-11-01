@@ -729,7 +729,7 @@ def gen_reward_manager():
         'damage_interaction_reward': RewTerm(func=damage_interaction_reward, weight=1/10 * 5/7),
         #'head_to_middle_reward': RewTerm(func=head_to_middle_reward, weight=15/10),
         'head_to_opponent': RewTerm(func=head_to_opponent, weight=10/10),
-        'penalize_attack_reward': RewTerm(func=in_state_reward, weight=-2/10, params={'desired_state': AttackState}),
+        'penalize_attack_reward': RewTerm(func=in_state_reward, weight=-5/10, params={'desired_state': AttackState}),
         
         # Custom Rewards
         #'head_to_weapon_reward': RewTerm(func=head_to_weapon_reward, weight=0.03),
@@ -760,7 +760,7 @@ The main function runs training. You can change configurations such as the Agent
 '''
 if __name__ == '__main__':
     # Create agent
-    my_agent = SubmittedAgent(file_path="checkpoints/alpha_1/v_28999.zip")
+    my_agent = SubmittedAgent(file_path="checkpoints/alpha_1/v_34699.zip")
 
     # Start here if you want to train from scratch. e.g:
     #my_agent = RecurrentPPOAgent()

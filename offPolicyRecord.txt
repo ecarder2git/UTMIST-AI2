@@ -612,12 +612,12 @@ class OffPolicyAlgorithm(BaseAlgorithm):
             for idx, done in enumerate(dones):
                 if done:
                     # VEC MARK 3 - On done (episode reset), change that env's opponent.
-                    if np.random.random() < 0.1: # Chance of constant agent
+                    if np.random.random() < 0#0.1: # Chance of constant agent
                         self.actual_opps[idx] = None # None represents constant_agent
                         #print(f"Selecting new agent for env {idx}:NONETYPE\n\tNewOppActuals:{self.actual_opps}")
                     else:
                         try:
-                            if np.random.random() < 0.3:
+                            if np.random.random() < 0.1#0.3:
                                 partPath = np.random.choice(self.opp_agents)
                             else:
                                 partPath = np.random.choice(self.opp_agents[-5:])

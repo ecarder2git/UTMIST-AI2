@@ -118,6 +118,7 @@ class SubmittedAgent(Agent):
         # updating env with oppositions
         self.model.actual_opps = [None] * self.model.n_envs
         
+        latest_eps = 34699
         self.model.opp_agents = [] #["v_499",...]: # pretrained opps
         # these shouldn't be recursive, since learn(...) is only called on the original
             
