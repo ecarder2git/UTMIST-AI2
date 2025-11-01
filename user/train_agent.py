@@ -27,7 +27,7 @@ from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 from environment.agent import *
 from typing import Optional, Type, List, Tuple
 
-from user.my_agent import SubmittedAgent
+from user.my_agent import *
 
 # -------------------------------------------------------------------------
 # ----------------------------- AGENT CLASSES -----------------------------
@@ -553,17 +553,17 @@ def gen_reward_manager():
         'danger_zone_reward': RewTerm(func=danger_zone_reward, weight=0.5),
         'damage_interaction_reward': RewTerm(func=damage_interaction_reward, weight=1.0),
         #'head_to_middle_reward': RewTerm(func=head_to_middle_reward, weight=0.01),
-        #'head_to_opponent': RewTerm(func=head_to_opponent, weight=0.05),
-        'penalize_attack_reward': RewTerm(func=in_state_reward, weight=-0.04, params={'desired_state': AttackState}),
-        'holding_more_than_3_keys': RewTerm(func=holding_more_than_3_keys, weight=-0.01),
+        'head_to_opponent': RewTerm(func=head_to_opponent, weight=0.3),
+        #'penalize_attack_reward': RewTerm(func=in_state_reward, weight=-0.04, params={'desired_state': AttackState}),
+        #'holding_more_than_3_keys': RewTerm(func=holding_more_than_3_keys, weight=-0.01),
         #'taunt_reward': RewTerm(func=in_state_reward, weight=0.2, params={'desired_state': TauntState}),
     }
     signal_subscriptions = {
-        'on_win_reward': ('win_signal', RewTerm(func=on_win_reward, weight=50)),
-        'on_knockout_reward': ('knockout_signal', RewTerm(func=on_knockout_reward, weight=8)),
+        'on_win_reward': ('win_signal', RewTerm(func=on_win_reward, weight=70)),
+        'on_knockout_reward': ('knockout_signal', RewTerm(func=on_knockout_reward, weight=24)),
         'on_combo_reward': ('hit_during_stun', RewTerm(func=on_combo_reward, weight=5)),
         'on_equip_reward': ('weapon_equip_signal', RewTerm(func=on_equip_reward, weight=10)),
-        'on_drop_reward': ('weapon_drop_signal', RewTerm(func=on_drop_reward, weight=15))
+        #'on_drop_reward': ('weapon_drop_signal', RewTerm(func=on_drop_reward, weight=15))
     }
     return RewardManager(reward_functions, signal_subscriptions)
 
@@ -575,7 +575,7 @@ The main function runs training. You can change configurations such as the Agent
 '''
 if __name__ == '__main__':
     # Create agent
-    my_agent = SubmittedAgent(file_path=None)
+    my_agent = SubmittedAgent(file_path=None)#"checkpoints/alpha_1/v_12.zip")
 
     # Start here if you want to train from scratch. e.g:
     #my_agent = RecurrentPPOAgent()

@@ -324,6 +324,7 @@ class OffPolicyAlgorithm(BaseAlgorithm):
         assert self.env is not None, "You must set the environment before calling learn()"
         assert isinstance(self.train_freq, TrainFreq)  # check done in _setup_learn()
 
+        saved = False
         while self.num_timesteps < total_timesteps:
             rollout = self.collect_rollouts(
                 self.env,
@@ -347,10 +348,10 @@ class OffPolicyAlgorithm(BaseAlgorithm):
                     self.train(batch_size=self.batch_size, gradient_steps=gradient_steps)
 
 
-            if self._episode_num % 500 == 499:      # VEC MARK 1 - SAVING
+            if self._episode_num % 50 == 12:      # VEC MARK 1 - SAVING
                 if not saved: # this loops gets run many times before an episode completes, this ensures it only saves once
                     saved = True
-                    self.save("checkpoints/alpha_1/v_" + str(self._episode_num) + ".zip", exclude=["opp_agents", "subAgent", "actual_opps"])
+                    self.save("checkpoints/alpha_1/v_" + str(self._episode_num) + ".zip", exclude=["opp_agents", "subAgent", "actual_opps", "weapon_attacks_mapping","attacks","spear_attacks","hammer_attacks"])
                     self.subAgent.updateOpponentList("checkpoints/alpha_1/v_" + str(self._episode_num) + ".zip")
             else:
                 saved = False
@@ -574,6 +575,7 @@ class OffPolicyAlgorithm(BaseAlgorithm):
                     opp_obs[:16] = self._last_obs[i][32:48] # Swapping the relevant (player-specific) stuff. [16:32] is the duplicate environment stuff like weapon spawners
                     opp_obs[32:48] = self._last_obs[i][:16]
                     opp_obs[48], opp_obs[49] = opp_obs[49], opp_obs[48]
+                    opp_obs[50], opp_obs[51] = opp_obs[51], opp_obs[50]
                     opp_actions[i] = opp_actor.predict(opp_obs, getRaw=True)
 
             full_actions = [{0:actions[i],1:opp_actions[i]} for i in range(len(actions))]
@@ -608,7 +610,7 @@ class OffPolicyAlgorithm(BaseAlgorithm):
             for idx, done in enumerate(dones):
                 if done:
                     # VEC MARK 3 - On done (episode reset), change that env's opponent.
-                    if np.random.random() < 0.2: # Chance of constant agent
+                    if np.random.random() < 1.2: # Chance of constant agent
                         self.actual_opps[idx] = None # None represents constant_agent
                         #print(f"Selecting new agent for env {idx}:NONETYPE\n\tNewOppActuals:{self.actual_opps}")
                     else:

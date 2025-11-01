@@ -1003,7 +1003,6 @@ def plot_results(log_folder, title="Learning Curve"):
     plt.savefig(log_folder + title + ".png")
 
 
-
 class CustomActionWrapper(ActionWrapper):
 
     @staticmethod
@@ -1013,33 +1012,25 @@ class CustomActionWrapper(ActionWrapper):
 
         move_data = action % 6
         att_jmp_dodge_data = action // 6
+            # attack/jump/dodge: {light, heavy, light aim up, heavy aim up, nothing, jump, dodge} # 7 combinations
 
         # process move_data
         x_move = move_data % 3 # 0=left, 1=nothing, 2=right ('a' & 'd' keys)
         down = move_data // 3 # 0=nothing, 1=pressed ('s' key)
 
-        # process att_jmp_dodge_data
-        dodge = 0
-        if att_jmp_dodge_data == 6: # dodge
-            dodge = 1
-            att_jmp_dodge_data = 0
-
-        attack = att_jmp_dodge_data % 3 # 0=nothing, 1=light, 2=heavy ('j' & 'k' keys)
-        jump = att_jmp_dodge_data // 3 # 0=nothing, 1=jump ('space' key)
-
         # spam pickup if no weapon; if weapon, don't press to avoid dropping weapon
         pickup = obs[15] == 0
 
         return np.array((
-            0, # w (aim up)
+            att_jmp_dodge_data == 2 or att_jmp_dodge_data == 3, # w (aim up)
             x_move == 0, # a (move left)
             down, # s (move down)
             x_move == 2, # d (move right)
-            jump, # space (jump)
+            att_jmp_dodge_data == 5, # space (jump)
             pickup, # h (pickup)
-            dodge, # l (dodge)
-            attack == 1, # j (light attack)
-            attack == 2, # k (heavy attack)
+            att_jmp_dodge_data == 6, # l (dodge)
+            att_jmp_dodge_data == 0 or att_jmp_dodge_data == 2, # j (light attack)
+            att_jmp_dodge_data == 1 or att_jmp_dodge_data == 3, # k (heavy attack)
             0, # g (taunt)
         ))
 
@@ -1047,9 +1038,9 @@ class CustomActionWrapper(ActionWrapper):
         super().__init__(env)
 
         # movement: {left, nothing, right}×{down, nothing} = 3 * 2 = 6 combinations
-        # attack/jump/dodge: ({light, heavy, nothing}×{jump, nothing}) ∪ {dodge} = 3*2 + 1 = 7 combinations
+        # attack/jump/dodge: {light, heavy, light aim up, heavy aim up, nothing, jump, dodge} # 7 combinations
         # 6 * 7 = 42 total action combinations
-        self.action_space = Discrete(42) # [0, 42]
+        self.action_space = Discrete(42) # [0, 41]
 
     def action(self, action):
         a = self.discrete_action_to_keys(action[0], self.observation)
@@ -1067,15 +1058,16 @@ class CustomActionWrapper(ActionWrapper):
         self.observation = obs
         return obs, reward, terminated, truncated, info
 
-
-#def transform_obs(x):
-#    return x[:48]
-class CustomObservationWrapper(ObservationWrapper):    # VECREMOVAL
+class CustomObservationWrapper(ObservationWrapper):
     CROP_INDEX = 48
 
     MAX_MOVE_FRAMES = 3 * 30
-    obs_additional_low = np.array([0,0], dtype=np.float32)
-    obs_additional_high = np.array([MAX_MOVE_FRAMES, MAX_MOVE_FRAMES], dtype=np.float32)
+    grounded_dodge_cooldown = 30
+    air_dodge_cooldown = 82
+    MAX_DODGE_COOLDOWN = max(grounded_dodge_cooldown, air_dodge_cooldown)
+
+    obs_additional_low = np.array([0,0,0,0], dtype=np.float32)
+    obs_additional_high = np.array([MAX_MOVE_FRAMES, MAX_MOVE_FRAMES, MAX_DODGE_COOLDOWN, MAX_DODGE_COOLDOWN], dtype=np.float32)
 
     @staticmethod 
     def generate_observation_space(low, high):
@@ -1091,8 +1083,11 @@ class CustomObservationWrapper(ObservationWrapper):    # VECREMOVAL
         self.prev_move_types = [0,0]
         self.move_frames = [0,0]
 
+        self.dodge_cooldowns = [0, 0]
+
     def observation(self, obs):
-        return np.concatenate((obs[:CustomObservationWrapper.CROP_INDEX], np.array(self.move_frames)))
+        return np.concatenate((obs[:CustomObservationWrapper.CROP_INDEX], 
+            np.array(self.move_frames), np.array(self.dodge_cooldowns)))
 
     # store most recent observation in self.observation
     def reset(self, *args, **kwargs):
@@ -1100,6 +1095,8 @@ class CustomObservationWrapper(ObservationWrapper):    # VECREMOVAL
 
         self.prev_move_types = [0,0]
         self.move_frames = [0,0]
+
+        self.dodge_cooldowns = [0, 0]
 
         return obs, info
 
@@ -1109,8 +1106,12 @@ class CustomObservationWrapper(ObservationWrapper):    # VECREMOVAL
         return obs, reward, terminated, truncated, info
     
     def _step(self, obs):
-        for i, obs_i in enumerate((14, 46)):
-            move_type = obs[obs_i]
+        move_type_obs_is = (14, 46)
+        dodge_timer_obs_is = (10, 42)
+        grounded_obs_is = (5, 37)
+
+        for i in range(2):
+            move_type = obs[move_type_obs_is[i]]
 
             if move_type != 0 and move_type == self.prev_move_types[i]:
                 self.move_frames[i] += 1
@@ -1118,6 +1119,14 @@ class CustomObservationWrapper(ObservationWrapper):    # VECREMOVAL
             else: 
                 self.move_frames[i] = 0
                 self.prev_move_types[i] = move_type
+
+            if self.dodge_cooldowns[i] != 0:
+                self.dodge_cooldowns[i] -= 1
+            elif obs[dodge_timer_obs_is[i]] != 0:
+                if obs[grounded_obs_is[i]] == 1:
+                    self.dodge_cooldowns[i] = CustomObservationWrapper.grounded_dodge_cooldown
+                else:
+                    self.dodge_cooldowns[i] = CustomObservationWrapper.air_dodge_cooldown
 
 # Above is the moved custom wrapper classes
 def train(agent: Agent,
