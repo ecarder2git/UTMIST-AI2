@@ -10,6 +10,8 @@ import numpy as np
 import torch as th
 from gymnasium import spaces
 
+from functools import partial # VEC MARK 0
+
 from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common.buffers import DictReplayBuffer, ReplayBuffer
 from stable_baselines3.common.callbacks import BaseCallback
@@ -348,10 +350,10 @@ class OffPolicyAlgorithm(BaseAlgorithm):
                     self.train(batch_size=self.batch_size, gradient_steps=gradient_steps)
 
 
-            if self._episode_num % 50 == 12:      # VEC MARK 1 - SAVING
+            if self._episode_num % 3 == 1:      # VEC MARK 1 - SAVING
                 if not saved: # this loops gets run many times before an episode completes, this ensures it only saves once
                     saved = True
-                    self.save("checkpoints/alpha_1/v_" + str(self._episode_num) + ".zip", exclude=["opp_agents", "subAgent", "actual_opps", "weapon_attacks_mapping","attacks","spear_attacks","hammer_attacks"])
+                    self.save("checkpoints/alpha_1/v_" + str(self._episode_num) + ".zip", exclude=["opp_agents", "subAgent", "actual_opps", "subAgentClass", "weapon_attacks_mapping","attacks","spear_attacks","hammer_attacks"])
                     self.subAgent.updateOpponentList("checkpoints/alpha_1/v_" + str(self._episode_num) + ".zip")
             else:
                 saved = False
@@ -610,12 +612,24 @@ class OffPolicyAlgorithm(BaseAlgorithm):
             for idx, done in enumerate(dones):
                 if done:
                     # VEC MARK 3 - On done (episode reset), change that env's opponent.
-                    if np.random.random() < 1.2: # Chance of constant agent
+                    if np.random.random() < 0.2: # Chance of constant agent
                         self.actual_opps[idx] = None # None represents constant_agent
                         #print(f"Selecting new agent for env {idx}:NONETYPE\n\tNewOppActuals:{self.actual_opps}")
                     else:
                         try:
-                            self.actual_opps[idx] = np.random.choice(self.opp_agents)
+                            partPath = np.random.choice(self.opp_agents)
+
+                            path = "checkpoints/alpha_1/" + partPath + ".zip"
+                            try:
+                                #print("Constructing new agent with path="+path)
+                                opponent = (partial(self.subAgentClass))(file_path=path)
+                            except FileNotFoundError:
+                                print(f"Warning: Self-play file {path} not found. ADJUST LIST IN OFF_POLICY_ALGORITHM.py OR ELSE.")
+                            #else:
+                            #    print("Warning: No self-play model saved. Defaulting to constant agent.")
+                            #    opponent = ConstantAgent()
+                            opponent.get_env_info(env)
+                            self.actual_opps[idx] = opponent
                             #print(f"Selecting new agent for env {idx}:{self.actual_opps[idx].model._episode_num}\n\tNewOppActuals:{self.actual_opps}")
                         except:
                             self.actual_opps[idx] = None # In the event there are no opp_agents

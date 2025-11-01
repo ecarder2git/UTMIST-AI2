@@ -117,22 +117,10 @@ class SubmittedAgent(Agent):
     def vecBeforeLearning(self, env):
         # updating env with oppositions
         self.model.actual_opps = [None] * self.model.n_envs
-        self.model.opp_agents = [] # these shouldn't be recursive, since learn(...) is only called on the original
-        for partPath in []:#["v4999","v9999","v14999","v19999"]:
-            #add to self.opp_agents
-            #if path:
-            path = "checkpoints/alpha_1/" + partPath + ".zip"
-            print(f"Updating Opponent List with previously trained model(s) at: {path}")
-            try:
-                opponent = (partial(SubmittedAgent))(file_path=path)
-            except FileNotFoundError:
-                print(f"Warning: Self-play file {path} not found. ADJUST LIST IN OFF_POLICY_ALGORITHM.py OR ELSE.")
-            #else:
-            #    print("Warning: No self-play model saved. Defaulting to constant agent.")
-            #    opponent = ConstantAgent()
-            opponent.get_env_info(env)
-            self.model.opp_agents.append(opponent)
-
+        
+        self.model.opp_agents = [] #["v_499",...]: # pretrained opps
+        # these shouldn't be recursive, since learn(...) is only called on the original
+            
         #print("MARKING")
         #print(self.model.exploration_rate)
         #print("Marking22")
@@ -144,30 +132,35 @@ class SubmittedAgent(Agent):
 
         #print(self.model.n_envs)
         for i in range(self.model.n_envs):
-            if np.random.random() < 0.3: # - Change in Offpolicyalgorithm.py for actual change. This one is irrelevant
-                self.model.actual_opps[i] = None # None represents constant_agent
-            else:
-                try:
-                    self.model.actual_opps[i] = np.random.choice(self.model.opp_agents)
-                except:
-                    self.model.actual_opps[i] = None
+            self.model.actual_opps[i] = None
+            #if np.random.random() < 0.3: # - Change in Offpolicyalgorithm.py for actual change. This one is irrelevant
+            #    self.model.actual_opps[i] = None # None represents constant_agent
+            #else:
+            #    try:
+            #        self.model.actual_opps[i] = np.random.choice(self.model.opp_agents)
+            #    except:
+            #        self.model.actual_opps[i] = None
         #print(self.model.actual_opps)
         #exit()
 
         self.model.subAgent = self
+        self.model.subAgentClass = SubmittedAgent
 
     def updateOpponentList(self, filepath):
         print(f"Updating Opponent List with newly saved model at: {filepath}")
         path = filepath
-        try:
-            opponent = (partial(SubmittedAgent))(file_path=path)
-        except FileNotFoundError:
-            print(f"Warning: Self-play file {path} not found. ADJUST LIST IN OFF_POLICY_ALGORITHM.py OR ELSE.")
+        self.model.opp_agents.append(filepath)
+
+
+        #try:
+        #    opponent = (partial(SubmittedAgent))(file_path=path)
+        #except FileNotFoundError:
+        #    print(f"Warning: Self-play file {path} not found. ADJUST LIST IN OFF_POLICY_ALGORITHM.py OR ELSE.")
         #else:
         #    print("Warning: No self-play model saved. Defaulting to constant agent.")
         #    opponent = ConstantAgent()
-        opponent.get_env_info(self.model.env)
-        self.model.opp_agents.append(opponent)
+        #opponent.get_env_info(self.model.env)
+        #self.model.opp_agents.append(opponent)
     
 
 
