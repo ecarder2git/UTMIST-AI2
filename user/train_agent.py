@@ -396,14 +396,7 @@ def damage_interaction_reward(
     damage_taken = player.damage_taken_this_frame
     damage_dealt = opponent.damage_taken_this_frame
 
-    if mode == RewardMode.ASYMMETRIC_OFFENSIVE:
-        reward = damage_dealt
-    elif mode == RewardMode.SYMMETRIC:
-        reward = damage_dealt - damage_taken
-    elif mode == RewardMode.ASYMMETRIC_DEFENSIVE:
-        reward = -damage_taken
-    else:
-        raise ValueError(f"Invalid mode: {mode}")
+    reward = damage_dealt - damage_taken
 
     return reward
 
@@ -414,7 +407,8 @@ def damage_interaction_reward(
 def danger_zone_reward(
     env: WarehouseBrawl,
     zone_penalty: int = 1,
-    zone_height: float = 4.2
+    zone_height_left: float = 3,
+    zone_height_right: float = 1
 ) -> float:
     """
     Applies a penalty for every time frame player surpases a certain height threshold in the environment.
@@ -429,6 +423,8 @@ def danger_zone_reward(
     """
     # Get player object from the environment
     player: Player = env.objects["player"]
+
+    zone_height = zone_height_right if player.body.position.x > 5 else zone_height_left
 
     # Apply penalty if the player is in the danger zone
     reward = -zone_penalty if player.body.position.y >= zone_height else 0.0
@@ -462,7 +458,7 @@ def danger_zone_sides_reward(
 def danger_zone_high_reward(
     env: WarehouseBrawl,
     zone_penalty: int = 1,
-    zone_height: float = -3.0
+    zone_height: float = -4.0
 ) -> float:
     """
     Applies a penalty for every time frame player surpases a certain height threshold in the environment.
@@ -480,6 +476,33 @@ def danger_zone_high_reward(
 
     # Apply penalty if the player is in the danger zone
     reward = -zone_penalty if player.body.position.y <= zone_height else 0.0
+
+    return reward * env.dt
+
+def danger_zone_middle_reward(
+    env: WarehouseBrawl,
+    zone_penalty: int = 1,
+    zone_height: float = 0
+) -> float:
+    """
+    Applies a penalty for every time frame player surpases a certain height threshold in the environment.
+
+    Args:
+        env (WarehouseBrawl): The game environment.
+        zone_penalty (int): The penalty applied when the player is in the danger zone.
+        zone_height (float): The height threshold defining the danger zone.
+
+    Returns:
+        float: The computed penalty as a tensor.
+    """
+    # Get player object from the environment
+    player: Player = env.objects["player"]
+
+    if player.body.position.x < -1.5 or player.body.position.x > 1.5:
+        return 0
+
+    # Apply penalty if the player is in the danger zone
+    reward = -zone_penalty if player.body.position.y > zone_height else 0.0
 
     return reward * env.dt
 
@@ -540,6 +563,12 @@ def head_to_opponent(
     # Get player object from the environment
     player: Player = env.objects["player"]
     opponent: Player = env.objects["opponent"]
+
+    if player.body.position.x > 6 or player.body.position.x  < -6:
+        return 0
+
+    if abs(player.body.position.x - opponent.body.position.x) < 2:
+        return 0
 
     # Apply reward/penalty based on movement towards/away from opponent
     multiplier = -1 if player.body.position.x > opponent.body.position.x else 1
@@ -610,28 +639,8 @@ def head_to_weapon_reward(
 
 def dodge_reward(
     env: WarehouseBrawl,
-    proximity_x: float = 5.0,
-    proximity_y: float = 3.0,
-    DODGE_FRAMES: int = 10,
-) -> float:
-    
-    """Reward for successfully dodging an opponent's attack.
-    
-        Modified from: https://github.com/StellarLuminosity/AI2/blob/main/env_final.ipynb
-    """
+) -> float: 
 
-    player: Player = env.objects["player"]
-    opponent: Player = env.objects["opponent"]
-
-    # Ensures the reward is only given when the player is within proximity to the opponent
-    # Avoids rewarding dodges that are too far away to be meaningful, which would waste the dodge cooldown
-    is_close_proximity_x = abs(player.body.position.x - opponent.body.position.x) < proximity_x
-    is_close_proximity_y = abs(player.body.position.y - opponent.body.position.y) < proximity_y
-
-    # Check if the opponent is attacking and the player is in a dodge state
-    if isinstance(opponent.state, AttackState) and isinstance(player.state, DodgeState):
-        if is_close_proximity_x and is_close_proximity_y and player.damage_taken_this_frame == 0:
-            return 1.0 / DODGE_FRAMES  # Reward for dodging
         
     return 0.0
         
@@ -660,17 +669,14 @@ def edge_guard_reward(
     
     reward = 0
 
-    LEFT_EDGE_X = -7.22
-    LEFT_EDGE_Y = 2.45
+    LEFT_EDGE = -7.2
+    RIGHT_EDGE = 7.2
 
-    RIGHT_EDGE_X = 7.08
-    RIGHT_EDGE_Y = 0.45
-
-    if opponent.body.position.x < LEFT_EDGE_X and opponent.body.position.y < LEFT_EDGE_Y:
-        if player.body.position.x < opponent.body.position.x + 2.0:
+    if opponent.body.position.x < LEFT_EDGE:
+        if player.body.position.x < LEFT_EDGE + 1.5:
             reward = 1.0 # Reward for edge-guarding on the left side
-    elif opponent.body.position.x > RIGHT_EDGE_X and opponent.body.position.y < RIGHT_EDGE_Y:
-        if player.body.position.x > opponent.body.position.x - 2.0:
+    elif opponent.body.position.x > RIGHT_EDGE:
+        if player.body.position.x > RIGHT_EDGE - 1.5:
             reward = 1.0 # Reward for edge-guarding on the right side
         
     return reward * env.dt
@@ -686,10 +692,12 @@ def on_win_reward(env: WarehouseBrawl, agent: str) -> float:
         return -1.0
 
 def on_knockout_reward(env: WarehouseBrawl, agent: str) -> float:
+    reward = max(100, 250 - env.objects[agent].damage)
+    
     if agent == 'player':
-        return -1.0
+        return -reward
     else:
-        return 1.0
+        return reward
     
 def on_equip_reward(env: WarehouseBrawl, agent: str) -> float:
     if agent == "player":
@@ -718,15 +726,16 @@ def gen_reward_manager():
     reward_functions = {
         #'target_height_reward': RewTerm(func=base_height_l2, weight=0.05, params={'target_height': -4, 'obj_name': 'player'}),
         'danger_zone_reward': RewTerm(func=danger_zone_reward, weight=30/10),
-        'damage_interaction_reward': RewTerm(func=damage_interaction_reward, weight=1/10),
+        'damage_interaction_reward': RewTerm(func=damage_interaction_reward, weight=1/10 * 5/7),
         #'head_to_middle_reward': RewTerm(func=head_to_middle_reward, weight=15/10),
         'head_to_opponent': RewTerm(func=head_to_opponent, weight=10/10),
-        'penalize_attack_reward': RewTerm(func=in_state_reward, weight=-1/10, params={'desired_state': AttackState}),
+        'penalize_attack_reward': RewTerm(func=in_state_reward, weight=-2/10, params={'desired_state': AttackState}),
         
         # Custom Rewards
         #'head_to_weapon_reward': RewTerm(func=head_to_weapon_reward, weight=0.03),
         'danger_zone_high_reward': RewTerm(func=danger_zone_high_reward, weight=20/10),
         'danger_zone_sides_reward': RewTerm(func=danger_zone_sides_reward, weight=20/10),
+        'danger_zone_middle_reward': RewTerm(func=danger_zone_middle_reward, weight=20/10),
         #'dodge_reward': RewTerm(func=dodge_reward, weight=0.3/10),
         'edge_guard_reward': RewTerm(func=edge_guard_reward, weight=10/10),
 
@@ -736,7 +745,7 @@ def gen_reward_manager():
     }
     signal_subscriptions = {
         'on_win_reward': ('win_signal', RewTerm(func=on_win_reward, weight=20/10)),
-        'on_knockout_reward': ('knockout_signal', RewTerm(func=on_knockout_reward, weight=100/10)),
+        'on_knockout_reward': ('knockout_signal', RewTerm(func=on_knockout_reward, weight=1/10 * 5/7)),
         #'on_combo_reward': ('hit_during_stun', RewTerm(func=on_combo_reward, weight=5/10)),
         'on_equip_reward': ('weapon_equip_signal', RewTerm(func=on_equip_reward, weight=20/10)),
         #'on_drop_reward': ('weapon_drop_signal', RewTerm(func=on_drop_reward, weight=15))
@@ -751,7 +760,7 @@ The main function runs training. You can change configurations such as the Agent
 '''
 if __name__ == '__main__':
     # Create agent
-    my_agent = SubmittedAgent(file_path=None)#"checkpoints/alpha_1/v_12.zip")
+    my_agent = SubmittedAgent(file_path="checkpoints/alpha_1/v_28999.zip")
 
     # Start here if you want to train from scratch. e.g:
     #my_agent = RecurrentPPOAgent()
@@ -797,6 +806,6 @@ if __name__ == '__main__':
             ),
         None,
         CameraResolution.LOW,
-        train_timesteps=40_000_000,
+        train_timesteps=5_000_000,
         train_logging=TrainLogging.PLOT
     )
