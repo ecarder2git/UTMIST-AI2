@@ -405,7 +405,7 @@ def damage_interaction_reward(
     else:
         raise ValueError(f"Invalid mode: {mode}")
 
-    return reward / 140
+    return reward
 
 
 # In[ ]:
@@ -611,7 +611,8 @@ def head_to_weapon_reward(
 def dodge_reward(
     env: WarehouseBrawl,
     proximity_x: float = 5.0,
-    proximity_y: float = 3.0
+    proximity_y: float = 3.0,
+    DODGE_FRAMES: int = 10,
 ) -> float:
     
     """Reward for successfully dodging an opponent's attack.
@@ -630,13 +631,13 @@ def dodge_reward(
     # Check if the opponent is attacking and the player is in a dodge state
     if isinstance(opponent.state, AttackState) and isinstance(player.state, DodgeState):
         if is_close_proximity_x and is_close_proximity_y and player.damage_taken_this_frame == 0:
-            return 1.0  # Reward for dodging
+            return 1.0 / DODGE_FRAMES  # Reward for dodging
+        
+    return 0.0
         
 def low_health_damage_penalty(
     env: WarehouseBrawl,
-    low_health_threshold: float = 30,
-    scale: float = 10 
-    # TODO: Tune scale value 
+    low_health_threshold: float = 50,
 ) -> float:
     
     """Penalty for taking damage when health is below a certain threshold."""
@@ -644,8 +645,8 @@ def low_health_damage_penalty(
     player: Player = env.objects["player"]
 
     # Apply penalty if health is below the threshold and damage is taken
-    if player.health < low_health_threshold:
-        return -player.damage_taken_this_frame / scale  
+    if player.health >= low_health_threshold:
+        return -player.damage_taken_this_frame
     return 0.0
 
 def edge_guard_reward(
@@ -656,6 +657,8 @@ def edge_guard_reward(
 
     player: Player = env.objects["player"]
     opponent: Player = env.objects["opponent"]
+    
+    reward = 0
 
     LEFT_EDGE_X = -7.22
     LEFT_EDGE_Y = 2.45
@@ -665,12 +668,12 @@ def edge_guard_reward(
 
     if opponent.body.position.x < LEFT_EDGE_X and opponent.body.position.y < LEFT_EDGE_Y:
         if player.body.position.x < opponent.body.position.x + 2.0:
-            return 1.0  # Reward for edge-guarding on the left side
+            reward = 1.0 # Reward for edge-guarding on the left side
     elif opponent.body.position.x > RIGHT_EDGE_X and opponent.body.position.y < RIGHT_EDGE_Y:
         if player.body.position.x > opponent.body.position.x - 2.0:
-            return 1.0  # Reward for edge-guarding on the right side
+            reward = 1.0 # Reward for edge-guarding on the right side
         
-    return 0.0
+    return reward * env.dt
 
 # ---------------------------------------------------------------------------------
 # ----------------------------- SIGNAL REWARDS ------------------------------------
@@ -725,9 +728,9 @@ def gen_reward_manager():
         'danger_zone_high_reward': RewTerm(func=danger_zone_high_reward, weight=0.5),
         'danger_zone_sides_reward': RewTerm(func=danger_zone_sides_reward, weight=0.5),
         'dodge_reward': RewTerm(func=dodge_reward, weight=0.3),
-        'low_health_damage_penalty': RewTerm(func=low_health_damage_penalty, weight=0.5),
-        'edge_guard_reward': RewTerm(func=edge_guard_reward, weight=0.2),
+        'edge_guard_reward': RewTerm(func=edge_guard_reward, weight=0.5),
 
+        # 'low_health_damage_penalty': RewTerm(func=low_health_damage_penalty, weight=0.5),
         #'holding_more_than_3_keys': RewTerm(func=holding_more_than_3_keys, weight=-0.01),
         #'taunt_reward': RewTerm(func=in_state_reward, weight=0.2, params={'desired_state': TauntState}),
     }
