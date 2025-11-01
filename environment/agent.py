@@ -1139,8 +1139,7 @@ def train(agent: Agent,
           ):
     
     #vectormod
-    def build_full_env(i):
-        print(i)
+    def build_full_env():
         #saver = save_handler(i)
         reward_manager = rewarder()
         base_env = SelfPlayWarehouseBrawl(reward_manager=reward_manager,
@@ -1158,15 +1157,7 @@ def train(agent: Agent,
         x = CustomActionWrapper(CustomObservationWrapper(base_env, new_observation_space))
         return x
 
-    envA = lambda: build_full_env(0)
-    envB = lambda: build_full_env(1)
-    envC = lambda: build_full_env(2)
-    envD = lambda: build_full_env(3)
-    envE = lambda: build_full_env(4)
-    envF = lambda: build_full_env(5)
-    envG = lambda: build_full_env(6)
-    envH = lambda: build_full_env(7)
-    env = SubprocVecEnv([ envA, envB, envC, envD, envE, envF, envG, envH])
+    env = SubprocVecEnv([ build_full_env for i in range(8) ])
     print(env) # Just to verify it was created correctly
 
     # Create environment

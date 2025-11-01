@@ -185,30 +185,30 @@ class UserInputAgent(Agent):
         super().__init__(*args, **kwargs)
 
     def predict(self, obs):
-        action = np.zeros(10)#self.act_helper.zeros()
+        action = self.act_helper.zeros()
        
         keys = pygame.key.get_pressed()
         if keys[pygame.K_w]:
-            action[0] = 1#action = self.act_helper.press_keys(['w'], action)
+            action = self.act_helper.press_keys(['w'], action)
         if keys[pygame.K_a]:
-            action[1] = 1#action = self.act_helper.press_keys(['a'], action)
+            action = self.act_helper.press_keys(['a'], action)
         if keys[pygame.K_s]:
-            action[2] = 1#action = self.act_helper.press_keys(['s'], action)
+            action = self.act_helper.press_keys(['s'], action)
         if keys[pygame.K_d]:
-            action[3] = 1#action = self.act_helper.press_keys(['d'], action)
+            action = self.act_helper.press_keys(['d'], action)
         if keys[pygame.K_SPACE]:
-            action[4] = 1#action = self.act_helper.press_keys(['space'], action)
+            action = self.act_helper.press_keys(['space'], action)
         # h j k l
         if keys[pygame.K_h]:
-            action[5] = 1#action = self.act_helper.press_keys(['h'], action)
+            action = self.act_helper.press_keys(['h'], action)
         if keys[pygame.K_j]:
-            action[7] = 1#action = self.act_helper.press_keys(['j'], action)
+            action = self.act_helper.press_keys(['j'], action)
         if keys[pygame.K_k]:
-            action[8] = 1#action = self.act_helper.press_keys(['k'], action)
-        if keys[pygame.K_l]:        # YES, THIS IS OUT OF ORDER FOR SOME UNBELIEVABLE REASON!!!
-            action[6] = 1#action = self.act_helper.press_keys(['l'], action)
+            action = self.act_helper.press_keys(['k'], action)
+        if keys[pygame.K_l]:
+            action = self.act_helper.press_keys(['l'], action)
         if keys[pygame.K_g]:
-            action[9] = 1#action = self.act_helper.press_keys(['g'], action)
+            action = self.act_helper.press_keys(['g'], action)
 
         return action
 
@@ -405,7 +405,7 @@ def damage_interaction_reward(
     else:
         raise ValueError(f"Invalid mode: {mode}")
 
-    return reward / 140
+    return reward
 
 
 # In[ ]:
@@ -435,9 +435,10 @@ def danger_zone_reward(
 
     return reward * env.dt
 
-def in_state_reward(
+def danger_zone_sides_reward(
     env: WarehouseBrawl,
-    desired_state: Type[PlayerObjectState]=BackDashState,
+    zone_penalty: int = 1,
+    zone_width: float = 7.1
 ) -> float:
     """
     Applies a penalty for every time frame player surpases a certain height threshold in the environment.
@@ -454,6 +455,53 @@ def in_state_reward(
     player: Player = env.objects["player"]
 
     # Apply penalty if the player is in the danger zone
+    reward = -zone_penalty if abs(player.body.position.x) >= zone_width else 0.0
+
+    return reward * env.dt
+
+def danger_zone_high_reward(
+    env: WarehouseBrawl,
+    zone_penalty: int = 1,
+    zone_height: float = -3.0
+) -> float:
+    """
+    Applies a penalty for every time frame player surpases a certain height threshold in the environment.
+
+    Args:
+        env (WarehouseBrawl): The game environment.
+        zone_penalty (int): The penalty applied when the player is in the danger zone.
+        zone_height (float): The height threshold defining the danger zone.
+
+    Returns:
+        float: The computed penalty as a tensor.
+    """
+    # Get player object from the environment
+    player: Player = env.objects["player"]
+
+    # Apply penalty if the player is in the danger zone
+    reward = -zone_penalty if player.body.position.y <= zone_height else 0.0
+
+    return reward * env.dt
+
+def in_state_reward(
+    env: WarehouseBrawl,
+    desired_state: Type[PlayerObjectState]=BackDashState,
+) -> float:
+    """
+    Applies a penalty/reward for being in a specific state.
+
+    Args:
+        env (WarehouseBrawl): The game environment.
+        desired_state (Type[PlayerObjectState]): The state to check against.
+
+    Returns:
+        float: The computed penalty/reward as a tensor.
+    """
+    
+    # Get player object from the environment
+    player: Player = env.objects["player"]
+
+    # Apply penalty if the player is in the danger zone
     reward = 1 if isinstance(player.state, desired_state) else 0.0
 
     return reward * env.dt
@@ -462,7 +510,7 @@ def head_to_middle_reward(
     env: WarehouseBrawl,    
 ) -> float:
     """
-    Applies a penalty for every time frame player surpases a certain height threshold in the environment.
+    Applies a penalty for every time frame player surpases a certain width threshold in the environment.
 
     Args:
         env (WarehouseBrawl): The game environment.
@@ -493,7 +541,7 @@ def head_to_opponent(
     player: Player = env.objects["player"]
     opponent: Player = env.objects["opponent"]
 
-    # Apply penalty if the player is in the danger zone
+    # Apply reward/penalty based on movement towards/away from opponent
     multiplier = -1 if player.body.position.x > opponent.body.position.x else 1
     reward = multiplier * (player.body.position.x - player.prev_x)
 
@@ -512,6 +560,125 @@ def holding_more_than_3_keys(
         return env.dt
     return 0
 
+# ---------------------------------------------------------------------------------
+# ----------------------------- CUSTOM REWARD FUNCTIONS ---------------------------
+# ---------------------------------------------------------------------------------
+
+def head_to_weapon_reward(
+    env: WarehouseBrawl,
+) -> float:
+    
+    """Reward for moving towards the weapon on the ground."""
+    class Weapon_Spawner():
+        def __init__(self, x, y, weapon_type):
+            self.x = x
+            self.y = y
+            self.weapon_type = weapon_type
+
+        def __lt__(self, other):
+            dist_self = (self.x - player.body.position.x)**2 + (self.y - player.body.position.y)**2
+            dist_other = (other.x - player.body.position.x)**2 + (other.y - player.body.position.y)**2
+            return dist_self < dist_other
+        
+    player = env.objects["player"]
+
+    if player.weapon != "Punch":
+        return 0.0  # No reward if already holding a weapon
+    
+    # Finding the nearest weapon spawner with an active weapon
+    obs = player.get_obs()
+    weapon_1 = Weapon_Spawner(obs[16], obs[17], obs[18])
+    weapon_2 = Weapon_Spawner(obs[19], obs[20], obs[21])
+    weapon_3 = Weapon_Spawner(obs[22], obs[23], obs[24])
+    weapon_4 = Weapon_Spawner(obs[25], obs[26], obs[27])
+
+    weapons = [weapon_1, weapon_2, weapon_3, weapon_4]
+    active_weapons = [w for w in weapons if w.weapon_type != 0]
+
+    nearest_weapon = min(active_weapons) if active_weapons else None
+
+    if nearest_weapon is None:
+        return 0.0  # No active weapons available
+    
+    # Calculate reward based on movement towards the nearest weapon
+    prev_distance = ((player.prev_x - nearest_weapon.x) ** 2 + (player.prev_y - nearest_weapon.y) ** 2) ** 0.5
+    current_distance = ((player.body.position.x - nearest_weapon.x) ** 2 + (player.body.position.y - nearest_weapon.y) ** 2) ** 0.5
+
+    reward = prev_distance - current_distance
+    return reward
+            
+
+def dodge_reward(
+    env: WarehouseBrawl,
+    proximity_x: float = 5.0,
+    proximity_y: float = 3.0,
+    DODGE_FRAMES: int = 10,
+) -> float:
+    
+    """Reward for successfully dodging an opponent's attack.
+    
+        Modified from: https://github.com/StellarLuminosity/AI2/blob/main/env_final.ipynb
+    """
+
+    player: Player = env.objects["player"]
+    opponent: Player = env.objects["opponent"]
+
+    # Ensures the reward is only given when the player is within proximity to the opponent
+    # Avoids rewarding dodges that are too far away to be meaningful, which would waste the dodge cooldown
+    is_close_proximity_x = abs(player.body.position.x - opponent.body.position.x) < proximity_x
+    is_close_proximity_y = abs(player.body.position.y - opponent.body.position.y) < proximity_y
+
+    # Check if the opponent is attacking and the player is in a dodge state
+    if isinstance(opponent.state, AttackState) and isinstance(player.state, DodgeState):
+        if is_close_proximity_x and is_close_proximity_y and player.damage_taken_this_frame == 0:
+            return 1.0 / DODGE_FRAMES  # Reward for dodging
+        
+    return 0.0
+        
+def low_health_damage_penalty(
+    env: WarehouseBrawl,
+    low_health_threshold: float = 50,
+) -> float:
+    
+    """Penalty for taking damage when health is below a certain threshold."""
+
+    player: Player = env.objects["player"]
+
+    # Apply penalty if health is below the threshold and damage is taken
+    if player.health >= low_health_threshold:
+        return -player.damage_taken_this_frame
+    return 0.0
+
+def edge_guard_reward(
+    env: WarehouseBrawl,
+)   -> float:
+    
+    "Reward for successfully edge-guarding an opponent."
+
+    player: Player = env.objects["player"]
+    opponent: Player = env.objects["opponent"]
+    
+    reward = 0
+
+    LEFT_EDGE_X = -7.22
+    LEFT_EDGE_Y = 2.45
+
+    RIGHT_EDGE_X = 7.08
+    RIGHT_EDGE_Y = 0.45
+
+    if opponent.body.position.x < LEFT_EDGE_X and opponent.body.position.y < LEFT_EDGE_Y:
+        if player.body.position.x < opponent.body.position.x + 2.0:
+            reward = 1.0 # Reward for edge-guarding on the left side
+    elif opponent.body.position.x > RIGHT_EDGE_X and opponent.body.position.y < RIGHT_EDGE_Y:
+        if player.body.position.x > opponent.body.position.x - 2.0:
+            reward = 1.0 # Reward for edge-guarding on the right side
+        
+    return reward * env.dt
+
+# ---------------------------------------------------------------------------------
+# ----------------------------- SIGNAL REWARDS ------------------------------------
+# ---------------------------------------------------------------------------------
+
 def on_win_reward(env: WarehouseBrawl, agent: str) -> float:
     if agent == 'player':
         return 1.0
@@ -527,7 +694,7 @@ def on_knockout_reward(env: WarehouseBrawl, agent: str) -> float:
 def on_equip_reward(env: WarehouseBrawl, agent: str) -> float:
     if agent == "player":
         if env.objects["player"].weapon == "Hammer":
-            return 2.0
+            return 1.5
         elif env.objects["player"].weapon == "Spear":
             return 1.0
     return 0.0
@@ -549,20 +716,29 @@ Add your dictionary of RewardFunctions here using RewTerms
 '''
 def gen_reward_manager():
     reward_functions = {
-        #'target_height_reward': RewTerm(func=base_height_l2, weight=0.0, params={'target_height': -4, 'obj_name': 'player'}),
-        'danger_zone_reward': RewTerm(func=danger_zone_reward, weight=0.5),
-        'damage_interaction_reward': RewTerm(func=damage_interaction_reward, weight=1.0),
-        #'head_to_middle_reward': RewTerm(func=head_to_middle_reward, weight=0.01),
-        'head_to_opponent': RewTerm(func=head_to_opponent, weight=0.3),
-        #'penalize_attack_reward': RewTerm(func=in_state_reward, weight=-0.04, params={'desired_state': AttackState}),
+        #'target_height_reward': RewTerm(func=base_height_l2, weight=0.05, params={'target_height': -4, 'obj_name': 'player'}),
+        'danger_zone_reward': RewTerm(func=danger_zone_reward, weight=30/10),
+        'damage_interaction_reward': RewTerm(func=damage_interaction_reward, weight=1/10),
+        #'head_to_middle_reward': RewTerm(func=head_to_middle_reward, weight=15/10),
+        'head_to_opponent': RewTerm(func=head_to_opponent, weight=10/10),
+        'penalize_attack_reward': RewTerm(func=in_state_reward, weight=-1/10, params={'desired_state': AttackState}),
+        
+        # Custom Rewards
+        #'head_to_weapon_reward': RewTerm(func=head_to_weapon_reward, weight=0.03),
+        'danger_zone_high_reward': RewTerm(func=danger_zone_high_reward, weight=20/10),
+        'danger_zone_sides_reward': RewTerm(func=danger_zone_sides_reward, weight=20/10),
+        #'dodge_reward': RewTerm(func=dodge_reward, weight=0.3/10),
+        'edge_guard_reward': RewTerm(func=edge_guard_reward, weight=10/10),
+
+        # 'low_health_damage_penalty': RewTerm(func=low_health_damage_penalty, weight=0.5),
         #'holding_more_than_3_keys': RewTerm(func=holding_more_than_3_keys, weight=-0.01),
         #'taunt_reward': RewTerm(func=in_state_reward, weight=0.2, params={'desired_state': TauntState}),
     }
     signal_subscriptions = {
-        'on_win_reward': ('win_signal', RewTerm(func=on_win_reward, weight=70)),
-        'on_knockout_reward': ('knockout_signal', RewTerm(func=on_knockout_reward, weight=24)),
-        'on_combo_reward': ('hit_during_stun', RewTerm(func=on_combo_reward, weight=5)),
-        'on_equip_reward': ('weapon_equip_signal', RewTerm(func=on_equip_reward, weight=10)),
+        'on_win_reward': ('win_signal', RewTerm(func=on_win_reward, weight=20/10)),
+        'on_knockout_reward': ('knockout_signal', RewTerm(func=on_knockout_reward, weight=100/10)),
+        #'on_combo_reward': ('hit_during_stun', RewTerm(func=on_combo_reward, weight=5/10)),
+        'on_equip_reward': ('weapon_equip_signal', RewTerm(func=on_equip_reward, weight=20/10)),
         #'on_drop_reward': ('weapon_drop_signal', RewTerm(func=on_drop_reward, weight=15))
     }
     return RewardManager(reward_functions, signal_subscriptions)
