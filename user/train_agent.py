@@ -435,6 +435,30 @@ def danger_zone_reward(
 
     return reward * env.dt
 
+def danger_zone_sides_reward(
+    env: WarehouseBrawl,
+    zone_penalty: int = 1,
+    zone_width: float = 7.1
+) -> float:
+    """
+    Applies a penalty for every time frame player surpases a certain height threshold in the environment.
+
+    Args:
+        env (WarehouseBrawl): The game environment.
+        zone_penalty (int): The penalty applied when the player is in the danger zone.
+        zone_height (float): The height threshold defining the danger zone.
+
+    Returns:
+        float: The computed penalty as a tensor.
+    """
+    # Get player object from the environment
+    player: Player = env.objects["player"]
+
+    # Apply penalty if the player is in the danger zone
+    reward = -zone_penalty if abs(player.body.position.x) >= zone_width else 0.0
+
+    return reward * env.dt
+
 def danger_zone_high_reward(
     env: WarehouseBrawl,
     zone_penalty: int = 1,
@@ -699,6 +723,7 @@ def gen_reward_manager():
         # Custom Rewards
         #'head_to_weapon_reward': RewTerm(func=head_to_weapon_reward, weight=0.03),
         'danger_zone_high_reward': RewTerm(func=danger_zone_high_reward, weight=0.5),
+        'danger_zone_sides_reward': RewTerm(func=danger_zone_sides_reward, weight=0.5),
         'dodge_reward': RewTerm(func=dodge_reward, weight=0.1),
         'low_health_damage_penalty': RewTerm(func=low_health_damage_penalty, weight=1.0),
         'edge_guard_reward': RewTerm(func=edge_guard_reward, weight=0.2),
