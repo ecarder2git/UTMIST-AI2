@@ -29,6 +29,11 @@ from gymnasium.wrappers import TransformObservation
 
 import numpy as np
 
+# To run the sample TTNN model, you can uncomment the 2 lines below: 
+# import ttnn
+# from user.my_agent_tt import TTMLPPolicy
+
+
 class SubmittedAgent(Agent):
     N_ENVS = 4
 
@@ -47,6 +52,10 @@ class SubmittedAgent(Agent):
         # return SubprocVecEnv([ lambda: CustomActionWrapper(
         #         TransformObservation(env, transform_obs, self.new_observation_space))
         #     for i in range(self.N_ENVS)])
+        
+        # To run a TTNN model, you must maintain a pointer to the device and can be done by 
+        # uncommmenting the line below to use the device pointer
+        # self.mesh_device = ttnn.open_mesh_device(ttnn.MeshShape(1,1))
 
     def _initialize(self) -> None:
         self.new_observation_space = Box(self.observation_space.low[:48], self.observation_space.high[:48])
@@ -61,6 +70,14 @@ class SubmittedAgent(Agent):
             del self.env
         else:
             self.model = CustomDQN.load(self.file_path)
+
+        # To run the sample TTNN model during inference, you can uncomment the 5 lines below:
+        # This assumes that your self.model.policy has the MLPPolicy architecture defined in `train_agent.py` or `my_agent_tt.py`
+        # mlp_state_dict = self.model.policy.features_extractor.model.state_dict()
+        # self.tt_model = TTMLPPolicy(mlp_state_dict, self.mesh_device)
+        # self.model.policy.features_extractor.model = self.tt_model
+        # self.model.policy.vf_features_extractor.model = self.tt_model
+        # self.model.policy.pi_features_extractor.model = self.tt_model
 
     def _gdown(self) -> str:
         # data_path = "rl-model.zip"
