@@ -119,7 +119,7 @@ class SubmittedAgent(Agent):
         self.model.actual_opps = [None] * self.model.n_envs
         
         latest_eps = 34699
-        self.model.opp_agents = [] #["v_499",...]: # pretrained opps
+        self.model.opp_agents = ["v_33699","v_38099", "v_25099", "v_34099", "v_39099"] #["v_499",...]: # pretrained opps
         # these shouldn't be recursive, since learn(...) is only called on the original
             
         #print("MARKING")

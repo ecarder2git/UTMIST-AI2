@@ -497,12 +497,13 @@ def danger_zone_middle_reward(
     """
     # Get player object from the environment
     player: Player = env.objects["player"]
+    platform = env.objects["platform1"]
 
     if player.body.position.x < -1.5 or player.body.position.x > 1.5:
         return 0
 
     # Apply penalty if the player is in the danger zone
-    reward = -zone_penalty if player.body.position.y > zone_height else 0.0
+    reward = -zone_penalty if player.body.position.y > platform.body.position.y - 0.2 else 0.0
 
     return reward * env.dt
 
@@ -728,8 +729,8 @@ def gen_reward_manager():
         'danger_zone_reward': RewTerm(func=danger_zone_reward, weight=30/10),
         'damage_interaction_reward': RewTerm(func=damage_interaction_reward, weight=1/10 * 5/7),
         #'head_to_middle_reward': RewTerm(func=head_to_middle_reward, weight=15/10),
-        'head_to_opponent': RewTerm(func=head_to_opponent, weight=10/10),
-        'penalize_attack_reward': RewTerm(func=in_state_reward, weight=-5/10, params={'desired_state': AttackState}),
+        'head_to_opponent': RewTerm(func=head_to_opponent, weight=15/10),
+        'penalize_attack_reward': RewTerm(func=in_state_reward, weight=-7/10, params={'desired_state': AttackState}),
         
         # Custom Rewards
         #'head_to_weapon_reward': RewTerm(func=head_to_weapon_reward, weight=0.03),
